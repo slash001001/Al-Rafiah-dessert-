@@ -1,0 +1,1541 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>صعود الطعس – GMC Sierra 2016</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      font-family: "Helvetica Neue", Arial, sans-serif;
+      --accent:#ff3756;
+      --bg:#0c0f14;
+      --hud:#121823;
+      --text:#f3f6ff;
+    }
+    * {
+      box-sizing:border-box;
+      user-select:none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    body {
+      margin:0;
+      background:var(--bg);
+      color:var(--text);
+      min-height:100vh;
+      display:flex;
+      align-items:stretch;
+      justify-content:center;
+    }
+    #app {
+      position:relative;
+      width:100%;
+      height:100vh;
+      overflow:hidden;
+    }
+    canvas {
+      width:100%;
+      height:100%;
+      display:block;
+      background:linear-gradient(#1b2a4d,#243a66 40%,#7d532c);
+    }
+    #topBar {
+      position:absolute;
+      top:0;
+      left:0;
+      right:0;
+      display:flex;
+      flex-wrap:wrap;
+      align-items:center;
+      gap:0.6rem;
+      padding:0.6rem 1.2rem;
+      background:rgba(10,12,16,0.7);
+      backdrop-filter:blur(12px);
+      font-size:0.95rem;
+      z-index:5;
+    }
+    #topBar .hud-item {
+      display:flex;
+      align-items:center;
+      gap:0.35rem;
+      white-space:nowrap;
+    }
+    #topBar strong {
+      font-size:1.05rem;
+      color:#fcee4f;
+    }
+    #phase {
+      margin-inline-start:auto;
+      font-weight:bold;
+    }
+    .progress {
+      position:relative;
+      width:100%;
+      height:0.45rem;
+      background:rgba(255,255,255,0.12);
+      border-radius:999px;
+      overflow:hidden;
+      flex:1 1 100%;
+    }
+    .progress .fill {
+      position:absolute;
+      inset:0;
+      width:0%;
+      background:linear-gradient(90deg,#f43f5e,#ff8a3d);
+      transition:width 0.1s ease-out;
+    }
+    #toast, #banner {
+      position:absolute;
+      left:50%;
+      transform:translateX(-50%);
+      padding:0.7rem 1.4rem;
+      background:rgba(0,0,0,0.74);
+      backdrop-filter:blur(20px);
+      border-radius:14px;
+      text-align:center;
+      pointer-events:none;
+      opacity:0;
+      transition:opacity 0.25s ease, transform 0.25s ease;
+      z-index:6;
+    }
+    #toast {
+      bottom:18%;
+      font-size:0.9rem;
+    }
+    #banner {
+      top:22%;
+      font-size:1.25rem;
+      font-weight:600;
+      max-width:80%;
+      line-height:1.5;
+    }
+    #toast.visible, #banner.visible {
+      opacity:1;
+      transform:translate(-50%,0);
+    }
+    #qte {
+      position:absolute;
+      bottom:22%;
+      left:50%;
+      transform:translateX(-50%);
+      width:min(480px,80vw);
+      background:rgba(12,18,26,0.9);
+      border:2px solid rgba(255,255,255,0.15);
+      border-radius:16px;
+      padding:1rem;
+      text-align:center;
+      display:none;
+      z-index:7;
+    }
+    #qte.active {
+      display:block;
+    }
+    #qteTitle {
+      font-size:1.1rem;
+      margin-bottom:0.6rem;
+      font-weight:bold;
+    }
+    #qteBar {
+      position:relative;
+      height:0.55rem;
+      background:rgba(255,255,255,0.12);
+      border-radius:999px;
+      overflow:hidden;
+      margin-bottom:0.8rem;
+    }
+    #qteFill {
+      position:absolute;
+      inset:0;
+      width:0%;
+      background:linear-gradient(90deg,#22c55e,#0ea5e9);
+      transition:width 0.08s ease-out;
+    }
+    #qteKeys {
+      display:flex;
+      justify-content:center;
+      gap:0.8rem;
+    }
+    #qteKeys button {
+      flex:1;
+      font-size:1.4rem;
+      padding:0.6rem;
+      background:#222b3d;
+      color:#fff;
+      border:2px solid rgba(255,255,255,0.2);
+      border-radius:12px;
+    }
+    #end {
+      position:absolute;
+      inset:0;
+      background:rgba(6,9,13,0.82);
+      backdrop-filter:blur(20px);
+      display:none;
+      align-items:center;
+      justify-content:center;
+      z-index:10;
+    }
+    #end.active {
+      display:flex;
+    }
+    #endCard {
+      background:rgba(15,22,32,0.9);
+      padding:2rem;
+      border-radius:22px;
+      width:min(420px,90vw);
+      text-align:center;
+      box-shadow:0 22px 45px rgba(0,0,0,0.35);
+    }
+    #endCard h1 {
+      margin:0 0 0.8rem;
+      font-size:1.5rem;
+    }
+    #endCard .stat {
+      margin:0.35rem 0;
+      font-size:1.05rem;
+    }
+    #endCard button {
+      margin-top:1.4rem;
+      padding:0.75rem 1.8rem;
+      font-size:1.05rem;
+      border:none;
+      border-radius:999px;
+      background:linear-gradient(90deg,#f43f5e,#ff8a3d);
+      color:#fff;
+    }
+    #controls {
+      position:absolute;
+      bottom:0;
+      left:0;
+      right:0;
+      padding:0.8rem 1rem 1.1rem;
+      display:grid;
+      grid-template-columns:repeat(5,minmax(0,1fr));
+      gap:0.65rem;
+      z-index:5;
+    }
+    #controls button {
+      padding:0.85rem 0.6rem;
+      font-size:1.35rem;
+      border:none;
+      border-radius:16px;
+      background:rgba(18,24,36,0.82);
+      color:#fff;
+      box-shadow:0 6px 16px rgba(0,0,0,0.3);
+    }
+    #controls .wide {
+      grid-column:span 2;
+    }
+    #controls .hidden {
+      visibility:hidden;
+    }
+    #flipBtn {
+      position:absolute;
+      bottom:calc(1rem + 72px);
+      left:0.8rem;
+      padding:0.4rem 0.6rem;
+      font-size:0.9rem;
+      border:none;
+      border-radius:12px;
+      background:rgba(0,0,0,0.35);
+      color:#fff;
+      z-index:6;
+    }
+    #err {
+      position:absolute;
+      top:50%;
+      left:50%;
+      transform:translate(-50%,-50%);
+      background:#2f1315;
+      color:#ffd5d5;
+      padding:1rem 1.4rem;
+      border-radius:16px;
+      display:none;
+      z-index:99;
+    }
+    @media (min-width:920px) {
+      #controls {
+        grid-template-columns:repeat(8,minmax(0,1fr));
+        width:min(960px,100%);
+        margin-inline:auto;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <canvas id="scene" aria-label="ساحة اللعبة"></canvas>
+    <div id="topBar">
+      <span class="hud-item">🏎️ سرعة <strong id="hudSpeed">0</strong> كم/س</span>
+      <span class="hud-item">⭐ نقاط <strong id="hudScore">0</strong></span>
+      <span class="hud-item">🔥 كومبو <strong id="hudCombo">x1</strong> <small id="hudComboTime"></small></span>
+      <span class="hud-item">⚡ نيترو <strong id="hudNitro">2</strong></span>
+      <span class="hud-item">🪝 ونش <strong id="hudWinch">1</strong></span>
+      <span class="hud-item">⏱️ وقت <strong id="hudTime">60.0</strong>s</span>
+      <span id="phase">🌵 إحماء</span>
+      <div class="progress"><div class="fill" id="progressFill"></div></div>
+    </div>
+    <div id="toast"></div>
+    <div id="banner"></div>
+    <div id="qte">
+      <div id="qteTitle">تغريز! بدّل K و L بسرعة</div>
+      <div id="qteBar"><div id="qteFill"></div></div>
+      <div id="qteKeys">
+        <button type="button" data-qte="K">K</button>
+        <button type="button" data-qte="L">L</button>
+      </div>
+    </div>
+    <div id="end">
+      <div id="endCard">
+        <h1>😂 طبخنا… بس نسينا الملح 🧂</h1>
+        <p class="stat">النقاط: <strong id="endScore">0</strong></p>
+        <p class="stat">الزمن: <strong id="endTime">0.0s</strong></p>
+        <p class="stat">أعلى كومبو: <strong id="endCombo">x1</strong></p>
+        <p class="stat">أفضل نتيجة محفوظة: <strong id="endPB">--</strong></p>
+        <button type="button" id="restartBtn">إعادة</button>
+      </div>
+    </div>
+    <div id="controls">
+      <button type="button" data-hold="left">◀︎</button>
+      <button type="button" data-hold="right">▶︎</button>
+      <button type="button" data-tap="jump" class="wide">⬆︎</button>
+      <button type="button" data-tap="nitro">⚡</button>
+      <button type="button" data-tap="winch">🪝</button>
+      <button type="button" data-tap="choice1">1</button>
+      <button type="button" data-tap="choice2">2</button>
+      <button type="button" data-tap="choice3">3</button>
+      <button type="button" data-hold="qteK" class="hidden">K</button>
+      <button type="button" data-hold="qteL" class="hidden">L</button>
+    </div>
+    <button type="button" id="flipBtn">↔️ قلب الاتجاه</button>
+    <div id="err"></div>
+  </div>
+  <script>
+    // إعداد عام
+    'use strict';
+    const canvas = document.getElementById('scene');
+    const ctx = canvas.getContext('2d');
+    const dpr = window.devicePixelRatio || 1;
+    const hud = {
+      speed: document.getElementById('hudSpeed'),
+      score: document.getElementById('hudScore'),
+      combo: document.getElementById('hudCombo'),
+      comboTime: document.getElementById('hudComboTime'),
+      nitro: document.getElementById('hudNitro'),
+      winch: document.getElementById('hudWinch'),
+      time: document.getElementById('hudTime'),
+      phase: document.getElementById('phase'),
+      progress: document.getElementById('progressFill'),
+    };
+    const ui = {
+      toast: document.getElementById('toast'),
+      banner: document.getElementById('banner'),
+      qte: document.getElementById('qte'),
+      qteFill: document.getElementById('qteFill'),
+      end: document.getElementById('end'),
+      endScore: document.getElementById('endScore'),
+      endTime: document.getElementById('endTime'),
+      endCombo: document.getElementById('endCombo'),
+      endPB: document.getElementById('endPB'),
+      err: document.getElementById('err'),
+    };
+    const controls = document.querySelectorAll('#controls button');
+    const qteButtons = document.querySelectorAll('#qteKeys button');
+    const restartBtn = document.getElementById('restartBtn');
+    const flipBtn = document.getElementById('flipBtn');
+
+    // دوال مساعدة
+    const clamp = (v, mn, mx) => Math.max(mn, Math.min(mx, v));
+    const lerp = (a, b, t) => a + (b - a) * t;
+    const easeOut2 = t => 1 - Math.pow(1 - t, 2);
+    const rnd = (min, max) => Math.random() * (max - min) + min;
+    const approach = (value, target, delta) => {
+      if (value < target) return Math.min(value + delta, target);
+      if (value > target) return Math.max(value - delta, target);
+      return target;
+    };
+
+    // ثوابت اللعب
+    const WORLD = {
+      finish: 9200,
+      chairX: 1600,
+      sandStart: 2600,
+      sandEnd: 6400,
+      dogsStart: 4200,
+      dogsEnd: 7600,
+      gateX: 7800,
+      bossX: 8400,
+      flagX: 9000,
+      baseline: 420,
+    };
+    const CAR = {
+      width: 160,
+      height: 68,
+      wheelRadius: 22,
+      accel: 240,
+      friction: 14,
+      airDrag: 0.6,
+      gravity: 880,
+      jump: 520,
+      maxSpeed: 320,
+      maxReverse: -120,
+      nitroBoost: 360,
+      nitroForce: 420,
+      winchBoost: 180,
+      bounce: 0.0,
+    };
+    const GAME = {
+      duration: 60,
+      comboWindow: 4,
+      comboStep: 0.5,
+      comboMax: 4,
+      dogBaseScore: 100,
+      ooobaaaBonus: 50,
+      shalimarBoost: 300,
+      chairBonus: 100,
+      chairPenalty: 50,
+      bossReward: 500,
+      bossPenalty: 200,
+      qteReward: 50,
+      missPenalty: 40,
+      V_hitMin: 6.5,
+    };
+
+    // حالة الصوت
+    const sound = {
+      ctx: null,
+      engineOsc: null,
+      engineGain: null,
+      unlocked: false,
+      lastSpeedFreq: 0,
+    };
+    const effects = {};
+
+    // حالة المدخلات
+    const input = {
+      left: false,
+      right: false,
+      jumpQueued: false,
+      nitroQueued: false,
+      winchQueued: false,
+      choice: null,
+      qteKey: null,
+      flip: 1,
+    };
+
+    // كيان السيارة
+    const car = {
+      x: 60,
+      y: WORLD.baseline,
+      vx: 60,
+      vy: 0,
+      onGround: true,
+      speedKMH: 0,
+      s: 0,
+    };
+
+    // حالة اللعب العامة
+    const state = {
+      running: true,
+      elapsed: 0,
+      score: 0,
+      comboLevel: 0,
+      comboTimer: 0,
+      maxCombo: 1,
+      nitro: 2,
+      winch: 1,
+      nitroTimer: 0,
+      ooobaaaTimer: 0,
+      boostTimer: 0,
+      toastTimer: 0,
+      bannerTimer: 0,
+      qte: null,
+      qteCooldown: 0,
+      sandTimer: 0,
+      phase: '🌵 إحماء',
+      chairTouched: false,
+      chairResolved: false,
+      shalimarDone: false,
+      shalimarChoice: null,
+      massageActive: false,
+      bossActive: false,
+      bossSequence: [],
+      bossIndex: 0,
+      bossTimer: 0,
+      controlsFlipped: 0,
+      bossResolved: false,
+      ended: false,
+      pb: null,
+    };
+
+    // توليد الكلاب والمتفرجين
+    const dogs = [];
+    const spectators = [];
+    const dogCount = 12;
+    for (let i = 0; i < dogCount; i++) {
+      const x = WORLD.dogsStart + 180 + i * 260 + (i % 2 === 0 ? 90 : -70);
+      dogs.push({
+        x,
+        y: sampleGround(x),
+        hit: false,
+        missed: false,
+        timer: 0,
+      });
+    }
+    for (let i = 0; i < 14; i++) {
+      const x = 900 + i * 480 + rnd(-80, 80);
+      spectators.push({
+        x,
+        offset: rnd(60, 110),
+        sway: Math.random() * Math.PI * 2,
+        color: `hsl(${rnd(0,360)},60%,60%)`,
+      });
+    }
+
+    // قراءة أفضل نتيجة سابقة
+    try {
+      const raw = localStorage.getItem('sierra_pb');
+      if (raw) state.pb = JSON.parse(raw);
+    } catch (err) {
+      console.warn('PB load failed', err);
+    }
+
+    // إعادة تحجيم اللوحة
+    function resizeCanvas() {
+      const rect = canvas.getBoundingClientRect();
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+
+    // إنشاء الصوت بعد أول تفاعل
+    function unlockAudio() {
+      if (sound.unlocked) return;
+      try {
+        const ctxAudio = new (window.AudioContext || window.webkitAudioContext)();
+        const gain = ctxAudio.createGain();
+        gain.gain.value = 0;
+        gain.connect(ctxAudio.destination);
+        const osc = ctxAudio.createOscillator();
+        osc.type = 'sawtooth';
+        osc.frequency.value = 0;
+        osc.connect(gain);
+        osc.start();
+        sound.ctx = ctxAudio;
+        sound.engineGain = gain;
+        sound.engineOsc = osc;
+        sound.unlocked = true;
+        showToast('🎧 الصوت اشتغل', 1.6);
+      } catch (err) {
+        console.warn('Audio unlock failed', err);
+        ui.err.textContent = '⚠️ تعذّر إنشاء الصوت';
+        ui.err.style.display = 'block';
+      }
+    }
+    function playEffect(type, gain = 0.4, freq = 420) {
+      if (!sound.unlocked || !sound.ctx) return;
+      const now = sound.ctx.currentTime;
+      let bufferFn = effects[type];
+      if (!bufferFn) {
+        bufferFn = (hz, len = 0.2) => {
+          const osc = sound.ctx.createOscillator();
+          const gainNode = sound.ctx.createGain();
+          gainNode.gain.value = gain;
+          gainNode.gain.setValueAtTime(gain, now);
+          gainNode.gain.exponentialRampToValueAtTime(0.001, now + len);
+          osc.type = type === 'winch' ? 'square' : 'triangle';
+          osc.frequency.setValueAtTime(hz, now);
+          osc.connect(gainNode);
+          gainNode.connect(sound.ctx.destination);
+          osc.start(now);
+          osc.stop(now + len);
+        };
+        effects[type] = bufferFn;
+      }
+      bufferFn(freq + rnd(-20, 20), type === 'ooobaaa' ? 0.45 : 0.22);
+    }
+
+    // مدخلات لوحة المفاتيح
+    window.addEventListener('keydown', (e) => {
+      if (state.ended) {
+        if (e.key === 'Enter') resetGame();
+        return;
+      }
+      if (!sound.unlocked) unlockAudio();
+      switch (e.key) {
+        case 'ArrowLeft':
+        case 'a':
+          input.left = true;
+          break;
+        case 'ArrowRight':
+        case 'd':
+          input.right = true;
+          break;
+        case 'ArrowUp':
+        case ' ':
+        case 'Spacebar':
+          input.jumpQueued = true;
+          break;
+        case 'n':
+        case 'N':
+          input.nitroQueued = true;
+          break;
+        case 'w':
+        case 'W':
+          input.winchQueued = true;
+          break;
+        case 'K':
+        case 'k':
+          input.qteKey = 'K';
+          handleQTEKey('K');
+          break;
+        case 'L':
+        case 'l':
+          input.qteKey = 'L';
+          handleQTEKey('L');
+          break;
+        case '1':
+          queueChoice(1);
+          break;
+        case '2':
+          queueChoice(2);
+          break;
+        case '3':
+          queueChoice(3);
+          break;
+      }
+    });
+    window.addEventListener('keyup', (e) => {
+      switch (e.key) {
+        case 'ArrowLeft':
+        case 'a':
+          input.left = false;
+          break;
+        case 'ArrowRight':
+        case 'd':
+          input.right = false;
+          break;
+      }
+    });
+
+    // أزرار اللمس
+    controls.forEach((btn) => {
+      btn.addEventListener('pointerdown', (ev) => {
+        ev.preventDefault();
+        if (!sound.unlocked) unlockAudio();
+        const hold = btn.dataset.hold;
+        const tap = btn.dataset.tap;
+        if (hold) {
+          switch (hold) {
+            case 'left':
+              input.left = true;
+              break;
+            case 'right':
+              input.right = true;
+              break;
+            case 'qteK':
+              handleQTEKey('K');
+              break;
+            case 'qteL':
+              handleQTEKey('L');
+              break;
+          }
+        } else if (tap) {
+          switch (tap) {
+            case 'jump':
+              input.jumpQueued = true;
+              break;
+            case 'nitro':
+              input.nitroQueued = true;
+              break;
+            case 'winch':
+              input.winchQueued = true;
+              break;
+            case 'choice1':
+              queueChoice(1);
+              break;
+            case 'choice2':
+              queueChoice(2);
+              break;
+            case 'choice3':
+              queueChoice(3);
+              break;
+          }
+        }
+      });
+      btn.addEventListener('pointerup', () => {
+        const hold = btn.dataset.hold;
+        if (hold === 'left') input.left = false;
+        if (hold === 'right') input.right = false;
+      });
+      btn.addEventListener('pointerleave', () => {
+        const hold = btn.dataset.hold;
+        if (hold === 'left') input.left = false;
+        if (hold === 'right') input.right = false;
+      });
+    });
+
+    qteButtons.forEach((btn) => {
+      btn.addEventListener('pointerdown', (ev) => {
+        ev.preventDefault();
+        handleQTEKey(btn.dataset.qte);
+      });
+    });
+
+    // زر قلب الاتجاه الاختباري
+    flipBtn.addEventListener('click', () => {
+      input.flip *= -1;
+      showToast(input.flip === 1 ? '↔️ الاتجاه طبيعي' : '↔️ الاتجاه مقلوب', 1.2);
+    });
+
+    // زر إعادة النهاية
+    restartBtn.addEventListener('click', () => resetGame());
+
+    // عرض رسائل
+    function showToast(msg, duration = 1.4) {
+      ui.toast.textContent = msg;
+      ui.toast.classList.add('visible');
+      state.toastTimer = duration;
+    }
+    function showBanner(msg, duration = 2.2) {
+      ui.banner.textContent = msg;
+      ui.banner.classList.add('visible');
+      state.bannerTimer = duration;
+    }
+    function hideBanner() {
+      ui.banner.classList.remove('visible');
+      state.bannerTimer = 0;
+    }
+
+    // توليد الأرض
+    function sampleGround(x) {
+      try {
+        const slope = Math.min(260, x * 0.035);
+        const undulation = Math.sin(x * 0.0028) * 28 + Math.sin(x * 0.0012) * 22;
+        const dunes = Math.sin((x + 600) * 0.00033) * 40;
+        const crest = x > WORLD.flagX ? (x - WORLD.flagX) * 0.12 : 0;
+        const raw = WORLD.baseline - slope + undulation + dunes - crest;
+        const ground = clamp(raw, 180, canvas.height / dpr - 40);
+        return ground;
+      } catch (err) {
+        ui.err.textContent = '⚠️ sampleGround خطأ';
+        ui.err.style.display = 'block';
+        return WORLD.baseline;
+      }
+    }
+
+    // إدارة الكومبو
+    function registerCombo() {
+      state.comboLevel = clamp(state.comboLevel + 1, 0, GAME.comboMax);
+      state.comboTimer = GAME.comboWindow;
+      const combo = getComboMultiplier();
+      state.maxCombo = Math.max(state.maxCombo, combo);
+    }
+    function decayCombo(dt) {
+      if (state.comboTimer > 0) {
+        state.comboTimer -= dt;
+        if (state.comboTimer <= 0) {
+          state.comboLevel = 0;
+          state.comboTimer = 0;
+        }
+      }
+    }
+    function getComboMultiplier() {
+      return 1 + GAME.comboStep * clamp(state.comboLevel, 0, GAME.comboMax);
+    }
+
+    // التغريز QTE
+    function startQTE() {
+      if (state.qte) return;
+      state.qte = {
+        progress: 0,
+        timer: 3.2,
+        expect: 'K',
+      };
+      showBanner('☁️ الرمل ناعم! بدّل K/L بسرعة', 3.2);
+      ui.qte.classList.add('active');
+      toggleQTEButtons(true);
+      playEffect('qteStart', 0.25, 520);
+    }
+    function endQTE(success) {
+      if (!state.qte) return;
+      ui.qte.classList.remove('active');
+      toggleQTEButtons(false);
+      hideBanner();
+      if (success) {
+        state.score += GAME.qteReward;
+        showToast('✅ فكّ التغريز! +' + GAME.qteReward, 1.2);
+        playEffect('qteSuccess', 0.45, 720);
+        state.boostTimer = Math.max(state.boostTimer, 1.1);
+      } else {
+        showToast('❌ فشل التغريز!', 1.2);
+        playEffect('qteFail', 0.3, 220);
+        state.nitroTimer = 0;
+      }
+      state.qte = null;
+      state.qteCooldown = 5;
+    }
+    function handleQTEKey(key) {
+      if (!state.qte) return;
+      if (key === state.qte.expect) {
+        state.qte.progress = clamp(state.qte.progress + 0.16, 0, 1);
+        state.qte.expect = key === 'K' ? 'L' : 'K';
+        playEffect('qteTap', 0.22, 640);
+        ui.qteFill.style.width = (state.qte.progress * 100).toFixed(1) + '%';
+        if (state.qte.progress >= 1) {
+          endQTE(true);
+        }
+      } else {
+        state.qte.progress = clamp(state.qte.progress - 0.05, 0, 1);
+        playEffect('miss', 0.2, 210);
+        ui.qteFill.style.width = (state.qte.progress * 100).toFixed(1) + '%';
+      }
+    }
+    function toggleQTEButtons(show) {
+      controls.forEach((btn) => {
+        if (btn.dataset.hold === 'qteK' || btn.dataset.hold === 'qteL') {
+          btn.classList.toggle('hidden', !show);
+        }
+      });
+    }
+
+    // أحداث خاصة
+    function triggerOoobaaa() {
+      state.ooobaaaTimer = 1.4;
+      state.score += GAME.ooobaaaBonus;
+      state.boostTimer = Math.max(state.boostTimer, 1.4);
+      showBanner('🗣️ اوووبااااا! +' + GAME.ooobaaaBonus, 1.4);
+      playEffect('ooobaaa', 0.5, 660);
+    }
+    function startMassageEvent() {
+      state.massageActive = true;
+      showBanner('🙋‍♂️ مساج؟ اختر 1 / 2 / 3', 3.2);
+      playEffect('boss', 0.3, 300);
+    }
+    function startShalimarEvent() {
+      state.shalimarDone = true;
+      showBanner('🍽️ شاليمار بانتظارك! 1) كبسة 2) برياني 3) مفاجأة', 4);
+    }
+    function handleShalimarChoice(choice) {
+      switch (choice) {
+        case 1:
+          state.score += GAME.shalimarBoost;
+          state.boostTimer = Math.max(state.boostTimer, 2.5);
+          showToast('🍗 كبسة! +' + GAME.shalimarBoost, 1.8);
+          playEffect('boost', 0.45, 820);
+          break;
+        case 2:
+          showToast('🍛 برياني… ثقلنا شوي', 1.8);
+          car.vx *= 0.8;
+          playEffect('miss', 0.3, 280);
+          break;
+        case 3:
+          if (Math.random() < 0.5) {
+            state.nitro++;
+            showToast('🎁 نيترو إضافي!', 1.6);
+          } else {
+            state.boostTimer = Math.max(state.boostTimer, 1.0);
+            showToast('💨 غبرة مجنونة!', 1.6);
+          }
+          playEffect('boost', 0.4, 660);
+          break;
+      }
+    }
+    function startBossEvent() {
+      state.bossActive = true;
+      state.controlsFlipped = 2.4;
+      state.bossTimer = 3.6;
+      state.bossSequence = ['ArrowUp', 'ArrowLeft', 'ArrowUp'];
+      state.bossIndex = 0;
+      showBanner('🤪 Dumb & Dumber قلبوا الأزرار! نفّذ ↑ ← ↑ بسرعة!', 3.2);
+      playEffect('boss', 0.5, 180);
+    }
+    function handleBossKey(key) {
+      if (!state.bossActive) return;
+      const target = state.bossSequence[state.bossIndex];
+      if (key === target) {
+        state.bossIndex++;
+        playEffect('qteTap', 0.25, 580);
+        if (state.bossIndex >= state.bossSequence.length) {
+          state.bossActive = false;
+          state.score += GAME.bossReward;
+          state.nitro = Math.max(state.nitro, 1);
+          state.winch = Math.max(state.winch, 1);
+          showToast('🤜🤛 هزمتهم! +' + GAME.bossReward, 1.6);
+          playEffect('boost', 0.5, 680);
+        }
+      } else {
+        state.bossActive = false;
+        state.score = Math.max(0, state.score - GAME.bossPenalty);
+        showToast('🙃 فشل البوس! -' + GAME.bossPenalty, 1.6);
+        playEffect('miss', 0.35, 210);
+      }
+    }
+
+    // نظام الاختيارات السريعة
+    function queueChoice(idx) {
+      if (state.massageActive || (state.shalimarDone && !state.shalimarChoice)) {
+        resolveChoice(idx);
+      }
+    }
+    function resolveChoice(idx) {
+      if (state.massageActive) {
+        state.massageActive = false;
+        hideBanner();
+        switch (idx) {
+          case 1:
+            state.score += 100;
+            showToast('💆‍♂️ بعد الخط! +100', 1.4);
+            playEffect('boost', 0.35, 640);
+            break;
+          case 2:
+            showToast('🙅‍♂️ لا يا الحبيب', 1.2);
+            playEffect('miss', 0.25, 240);
+            break;
+          case 3:
+            car.x += 40;
+            showToast('😂 تعال ندف! اندفعنا', 1.4);
+            playEffect('boost', 0.35, 760);
+            break;
+        }
+      } else if (state.shalimarDone && !state.shalimarChoice) {
+        state.shalimarChoice = idx;
+        hideBanner();
+        handleShalimarChoice(idx);
+      }
+    }
+
+    // استعمال النيترو/الونش
+    function useNitro() {
+      if (state.nitro <= 0) return;
+      state.nitro--;
+      state.nitroTimer = 2.4;
+      state.boostTimer = Math.max(state.boostTimer, 2.4);
+      showToast('⚡ نيترو!', 1.2);
+      playEffect('boost', 0.5, 840);
+      navigator.vibrate?.(80);
+    }
+    function useWinch() {
+      if (state.winch <= 0) return;
+      state.winch--;
+      car.vx += CAR.winchBoost;
+      showToast('🪝 ونش شدّنا', 1.2);
+      playEffect('winch', 0.35, 420);
+      navigator.vibrate?.([60, 40, 60]);
+    }
+
+    // القفز
+    function tryJump() {
+      if (!car.onGround) return;
+      car.vy = -CAR.jump;
+      car.onGround = false;
+      playEffect('jump', 0.35, 680);
+      navigator.vibrate?.(40);
+    }
+
+    // تحيين HUD
+    function updateHUD(dt) {
+      hud.speed.textContent = car.speedKMH.toFixed(0);
+      hud.score.textContent = Math.round(state.score);
+      hud.combo.textContent = 'x' + getComboMultiplier().toFixed(2);
+      hud.comboTime.textContent = state.comboTimer > 0 ? '(' + state.comboTimer.toFixed(1) + 's)' : '';
+      hud.nitro.textContent = state.nitro;
+      hud.winch.textContent = state.winch;
+      const remaining = Math.max(0, GAME.duration - state.elapsed);
+      hud.time.textContent = remaining.toFixed(1);
+      hud.phase.textContent = state.phase;
+      const progress = clamp(car.x / WORLD.finish, 0, 1);
+      hud.progress.style.width = (progress * 100).toFixed(1) + '%';
+      if (state.toastTimer > 0) {
+        state.toastTimer -= dt;
+        if (state.toastTimer <= 0) ui.toast.classList.remove('visible');
+      }
+      if (state.bannerTimer > 0) {
+        state.bannerTimer -= dt;
+        if (state.bannerTimer <= 0) hideBanner();
+      }
+    }
+
+    // رسم الخلفية
+    function drawBackground(cameraX) {
+      const w = canvas.width / dpr;
+      const h = canvas.height / dpr;
+      const grd = ctx.createLinearGradient(0, 0, 0, h);
+      grd.addColorStop(0, '#0a1632');
+      grd.addColorStop(0.45, '#1b2a4d');
+      grd.addColorStop(1, '#5a3a1f');
+      ctx.fillStyle = grd;
+      ctx.fillRect(0, 0, w, h);
+      // كثبان بارالاكس بعيدة
+      ctx.fillStyle = 'rgba(187,134,74,0.45)';
+      ctx.beginPath();
+      for (let i = -1; i <= 4; i++) {
+        const baseX = (i * 480) - (cameraX * 0.1 % 480);
+        ctx.quadraticCurveTo(baseX + 120, h * 0.62 + Math.sin(i) * 14, baseX + 240, h * 0.64);
+      }
+      ctx.lineTo(w, h);
+      ctx.lineTo(0, h);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = 'rgba(215,154,84,0.55)';
+      ctx.beginPath();
+      for (let i = -1; i <= 4; i++) {
+        const baseX = (i * 520) - (cameraX * 0.25 % 520);
+        ctx.quadraticCurveTo(baseX + 140, h * 0.72 + Math.sin(i + 2) * 18, baseX + 280, h * 0.74);
+      }
+      ctx.lineTo(w, h);
+      ctx.lineTo(0, h);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    // رسم الأرض
+    function drawGround(cameraX) {
+      const w = canvas.width / dpr;
+      const h = canvas.height / dpr;
+      ctx.beginPath();
+      const step = 24;
+      for (let screenX = -step; screenX <= w + step; screenX += step) {
+        const worldX = screenX + cameraX;
+        const groundY = sampleGround(worldX);
+        if (screenX === -step) {
+          ctx.moveTo(screenX, groundY);
+        } else {
+          ctx.lineTo(screenX, groundY);
+        }
+      }
+      ctx.lineTo(w, h);
+      ctx.lineTo(0, h);
+      ctx.closePath();
+      ctx.fillStyle = '#885633';
+      ctx.fill();
+      ctx.fillStyle = 'rgba(0,0,0,0.2)';
+      ctx.fillRect(0, h - 22, w, 22);
+    }
+
+    // رسم المتفرجين
+    function drawSpectators(cameraX, dt) {
+      spectators.forEach((sp) => {
+        const sx = sp.x - cameraX;
+        const ground = sampleGround(sp.x);
+        const sy = ground - sp.offset + Math.sin(sp.sway) * 4;
+        sp.sway += dt * 2;
+        if (sx < -120 || sx > canvas.width / dpr + 120) return;
+        ctx.fillStyle = sp.color;
+        ctx.beginPath();
+        ctx.ellipse(sx, sy, 12, 24, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#1a1f2b';
+        ctx.fillRect(sx - 10, sy, 20, 36);
+      });
+    }
+
+    // رسم الكرسي
+    function drawChair(cameraX) {
+      const sx = WORLD.chairX - cameraX;
+      const sy = sampleGround(WORLD.chairX);
+      if (sx < -200 || sx > canvas.width / dpr + 200) return;
+      ctx.fillStyle = '#5b2b1a';
+      ctx.fillRect(sx - 18, sy - 40, 36, 40);
+      ctx.fillRect(sx - 16, sy - 60, 32, 8);
+      ctx.fillRect(sx - 12, sy - 24, 8, 24);
+      ctx.fillRect(sx + 4, sy - 24, 8, 24);
+    }
+
+    // رسم الكلاب
+    function drawDogs(cameraX, dt) {
+      dogs.forEach((dog) => {
+        const sx = dog.x - cameraX;
+        if (sx < -200 || sx > canvas.width / dpr + 200) return;
+        const groundY = sampleGround(dog.x);
+        dog.y = groundY;
+        const bodyY = groundY - 28;
+        ctx.save();
+        ctx.translate(sx, bodyY);
+        if (dog.hit) {
+          dog.timer += dt;
+          ctx.rotate(0.4);
+          ctx.globalAlpha = Math.max(0, 1 - dog.timer * 0.8);
+        }
+        ctx.fillStyle = '#2b2722';
+        ctx.fillRect(-22, -12, 44, 24);
+        ctx.fillRect(16, -20, 18, 16);
+        ctx.fillStyle = '#d9c38f';
+        ctx.fillRect(-20, 10, 8, 16);
+        ctx.fillRect(6, 10, 8, 16);
+        ctx.fillRect(-4, 10, 8, 16);
+        ctx.fillRect(20, 10, 8, 16);
+        ctx.fillStyle = '#443c33';
+        ctx.fillRect(18, -32, 18, 16);
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(27, -28, 6, 6);
+        ctx.fillStyle = '#000';
+        ctx.fillRect(29, -26, 3, 3);
+        ctx.restore();
+        if (dog.hit && dog.timer < 0.4) {
+          ctx.fillStyle = 'rgba(255,0,0,0.25)';
+          ctx.beginPath();
+          ctx.arc(sx + 10, groundY - 16, 20, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      });
+    }
+
+    // رسم شاليمار
+    function drawGate(cameraX) {
+      const sx = WORLD.gateX - cameraX;
+      if (sx < -260 || sx > canvas.width / dpr + 260) return;
+      const groundY = sampleGround(WORLD.gateX);
+      ctx.save();
+      ctx.translate(sx, groundY - 140);
+      ctx.strokeStyle = 'rgba(255,255,255,0.6)';
+      ctx.lineWidth = 6;
+      ctx.beginPath();
+      ctx.moveTo(-80, 140);
+      ctx.lineTo(-80, 0);
+      ctx.quadraticCurveTo(0, -40, 80, 0);
+      ctx.lineTo(80, 140);
+      ctx.stroke();
+      ctx.fillStyle = 'rgba(255,255,255,0.12)';
+      ctx.fillRect(-72, 20, 144, 96);
+      ctx.fillStyle = '#ffb347';
+      ctx.font = 'bold 24px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('شاليمار', 0, 72);
+      ctx.restore();
+    }
+
+    // رسم خط النهاية
+    function drawFinish(cameraX) {
+      const sx = WORLD.flagX - cameraX;
+      if (sx < -200 || sx > canvas.width / dpr + 200) return;
+      const groundY = sampleGround(WORLD.flagX);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(sx - 4, groundY - 160, 8, 160);
+      ctx.fillStyle = '#ff3756';
+      ctx.fillRect(sx, groundY - 160, 68, 40);
+      ctx.fillStyle = '#000';
+      ctx.font = 'bold 22px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('🏁', sx + 34, groundY - 130);
+    }
+
+    // رسم آثار الكفر
+    const tireMarks = [];
+    function spawnTireMark(x, y) {
+      tireMarks.push({ x, y, life: 0.8 });
+    }
+    function drawTireMarks(cameraX, dt) {
+      ctx.strokeStyle = 'rgba(0,0,0,0.35)';
+      ctx.lineWidth = 4;
+      tireMarks.forEach((mark) => {
+        mark.life -= dt;
+        if (mark.life <= 0) return;
+        const sx = mark.x - cameraX;
+        ctx.globalAlpha = mark.life;
+        ctx.beginPath();
+        ctx.moveTo(sx - 10, mark.y);
+        ctx.lineTo(sx + 10, mark.y + 2);
+        ctx.stroke();
+      });
+      ctx.globalAlpha = 1;
+      for (let i = tireMarks.length - 1; i >= 0; i--) {
+        if (tireMarks[i].life <= 0) tireMarks.splice(i, 1);
+      }
+    }
+
+    // رسم السيارة
+    function drawCar(cameraX) {
+      const screenX = car.x - cameraX;
+      const groundY = car.y;
+      const bodyY = groundY - CAR.height - CAR.wheelRadius;
+      // ظل
+      ctx.fillStyle = 'rgba(0,0,0,0.4)';
+      ctx.beginPath();
+      ctx.ellipse(screenX, groundY - 6, 70, 16, 0, 0, Math.PI * 2);
+      ctx.fill();
+      // إطارات
+      ctx.fillStyle = '#111';
+      ctx.beginPath();
+      ctx.arc(screenX - 50, groundY - CAR.wheelRadius, CAR.wheelRadius, 0, Math.PI * 2);
+      ctx.arc(screenX + 52, groundY - CAR.wheelRadius, CAR.wheelRadius, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#555';
+      ctx.beginPath();
+      ctx.arc(screenX - 50, groundY - CAR.wheelRadius, CAR.wheelRadius * 0.55, 0, Math.PI * 2);
+      ctx.arc(screenX + 52, groundY - CAR.wheelRadius, CAR.wheelRadius * 0.55, 0, Math.PI * 2);
+      ctx.fill();
+      // جسم السيارة
+      ctx.fillStyle = '#050608';
+      ctx.beginPath();
+      ctx.moveTo(screenX - 78, bodyY + 12);
+      ctx.quadraticCurveTo(screenX - 80, bodyY - 18, screenX - 40, bodyY - 40);
+      ctx.lineTo(screenX + 36, bodyY - 44);
+      ctx.quadraticCurveTo(screenX + 64, bodyY - 46, screenX + 74, bodyY - 12);
+      ctx.lineTo(screenX + 78, bodyY + 30);
+      ctx.lineTo(screenX - 78, bodyY + 30);
+      ctx.closePath();
+      ctx.fill();
+      // زجاج
+      ctx.fillStyle = '#1f344e';
+      ctx.beginPath();
+      ctx.moveTo(screenX - 34, bodyY - 36);
+      ctx.lineTo(screenX + 22, bodyY - 40);
+      ctx.lineTo(screenX + 10, bodyY - 10);
+      ctx.lineTo(screenX - 32, bodyY - 8);
+      ctx.closePath();
+      ctx.fill();
+      // الشبك الأمامي
+      ctx.fillStyle = '#1d1d1d';
+      ctx.fillRect(screenX + 40, bodyY + 2, 50, 26);
+      ctx.fillStyle = '#555';
+      ctx.fillRect(screenX + 44, bodyY + 6, 42, 6);
+      ctx.fillRect(screenX + 44, bodyY + 16, 42, 6);
+      ctx.fillStyle = '#ff3b4d';
+      ctx.font = 'bold 18px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('GMC', screenX + 64, bodyY + 22);
+      // مصابيح
+      const headlampGlow = state.nitroTimer > 0 ? '#ffdd55' : '#ffe8a1';
+      ctx.fillStyle = headlampGlow;
+      ctx.fillRect(screenX + 78, bodyY + 4, 10, 12);
+      ctx.fillRect(screenX - 82, bodyY + 4, 12, 12);
+      // أثر الغبرة
+      if (state.boostTimer > 0) {
+        ctx.fillStyle = 'rgba(255,196,64,0.35)';
+        ctx.beginPath();
+        ctx.arc(screenX - 98, groundY - 12, 28, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    // اكتشاف الاصطدامات مع الكلاب
+    function checkDogHits() {
+      const carFront = car.x + CAR.width * 0.34;
+      dogs.forEach((dog) => {
+        if (dog.hit || dog.missed) return;
+        if (carFront > dog.x - 32 && carFront < dog.x + 48) {
+          const verticalDelta = Math.abs(car.y - sampleGround(car.x));
+          const speedOk = car.s >= GAME.V_hitMin;
+          if (car.onGround && speedOk) {
+            dog.hit = true;
+            registerCombo();
+            const gained = GAME.dogBaseScore * getComboMultiplier();
+            state.score += gained;
+            showToast('🐕‍🦺 دعس ممتاز! +' + Math.round(gained));
+            playEffect('hit', 0.45, 560);
+            navigator.vibrate?.([30, 40, 30]);
+          } else if (car.onGround) {
+            dog.missed = true;
+            state.comboLevel = 0;
+            state.comboTimer = 0;
+            state.score = Math.max(0, state.score - GAME.missPenalty);
+            showToast('😬 السرعة قليلة! -' + GAME.missPenalty);
+            playEffect('miss', 0.3, 200);
+          }
+        }
+      });
+    }
+
+    // تحديث المرحلة الحالية
+    function updatePhase(x) {
+      if (x < WORLD.chairX) state.phase = '🌵 إحماء';
+      else if (x < WORLD.sandStart) state.phase = '🪑 كرسي';
+      else if (x < WORLD.dogsStart) state.phase = '☁️ رمل ناعم';
+      else if (x < WORLD.gateX) state.phase = '🐕 منطقة كلاب';
+      else if (x < WORLD.bossX) state.phase = '🍽️ شاليمار';
+      else if (x < WORLD.flagX) state.phase = '🤪 Boss Dumb & Dumber';
+      else state.phase = '🏁 القمة';
+    }
+
+    // معالجة الكرسي
+    function handleChair() {
+      if (state.chairResolved) return;
+      const chairX = WORLD.chairX;
+      const carRear = car.x - CAR.width * 0.5;
+      const carFront = car.x + CAR.width * 0.5;
+      const overlap = carFront > chairX - 18 && carRear < chairX + 18 && car.onGround;
+      if (overlap) state.chairTouched = true;
+      if (!state.chairResolved && car.x > chairX + 80) {
+        if (state.chairTouched) {
+          state.score = Math.max(0, state.score - GAME.chairPenalty);
+          GAME.duration += 5;
+          showToast('💺 صدمنا الكرسي! -' + GAME.chairPenalty + ' +5s');
+          playEffect('miss', 0.35, 200);
+        } else {
+          state.score += GAME.chairBonus;
+          showToast('💺 نجونا من الكرسي! +' + GAME.chairBonus);
+          playEffect('boost', 0.35, 640);
+        }
+        state.chairResolved = true;
+      }
+    }
+
+    // تحديث الصوت
+    function updateEngineAudio() {
+      if (!sound.unlocked || !sound.engineOsc || !sound.engineGain) return;
+      const freq = 80 + car.speedKMH * 4;
+      sound.engineOsc.frequency.value = lerp(sound.engineOsc.frequency.value, freq, 0.12);
+      const gain = clamp(car.speedKMH / 220, 0.05, 0.45) + (state.nitroTimer > 0 ? 0.2 : 0);
+      sound.engineGain.gain.value = lerp(sound.engineGain.gain.value, gain, 0.08);
+    }
+
+    // نهاية الجولة
+    function endRun() {
+      if (state.ended) return;
+      state.ended = true;
+      state.running = false;
+      ui.end.classList.add('active');
+      ui.endScore.textContent = Math.round(state.score);
+      ui.endTime.textContent = state.elapsed.toFixed(1) + 's';
+      ui.endCombo.textContent = 'x' + state.maxCombo.toFixed(2);
+      const summary = { score: Math.round(state.score), time: state.elapsed, combo: state.maxCombo };
+      let pbText = '--';
+      try {
+        if (!state.pb || summary.score > state.pb.score) {
+          localStorage.setItem('sierra_pb', JSON.stringify(summary));
+          state.pb = summary;
+        }
+        pbText = state.pb.score + ' pts';
+      } catch (err) {
+        console.warn('PB save failed', err);
+      }
+      ui.endPB.textContent = pbText + ' | ' + summary.combo.toFixed(2) + 'x';
+      showBanner('😂 طبخنا… بس نسينا الملح 🧂', 4);
+      playEffect('boss', 0.5, 220);
+      navigator.vibrate?.([80, 160, 80]);
+    }
+
+    // إعادة التعيين
+    function resetGame() {
+      state.running = true;
+      state.ended = false;
+      state.elapsed = 0;
+      state.score = 0;
+      state.comboLevel = 0;
+      state.comboTimer = 0;
+      state.maxCombo = 1;
+      state.nitro = 2;
+      state.winch = 1;
+      state.nitroTimer = 0;
+      state.boostTimer = 0;
+      state.ooobaaaTimer = 0;
+      state.qte = null;
+      state.qteCooldown = 0;
+      state.phase = '🌵 إحماء';
+      state.chairTouched = false;
+      state.chairResolved = false;
+      state.massageActive = false;
+      state.shalimarDone = false;
+      state.shalimarChoice = null;
+      state.bossActive = false;
+      state.controlsFlipped = 0;
+      state.toastTimer = 0;
+      state.bannerTimer = 0;
+      ui.toast.classList.remove('visible');
+      hideBanner();
+      ui.qte.classList.remove('active');
+      ui.end.classList.remove('active');
+      car.x = 60;
+      car.y = sampleGround(car.x);
+      car.vx = 60;
+      car.vy = 0;
+      car.onGround = true;
+      dogs.forEach((dog) => {
+        dog.hit = false;
+        dog.missed = false;
+        dog.timer = 0;
+      });
+    }
+
+    // الحلقة الرئيسية
+    let lastTime = performance.now();
+    function frame(now) {
+      const dtMs = clamp(now - lastTime, 8, 48);
+      lastTime = now;
+      const dt = dtMs / 1000;
+      if (state.running && !state.ended) {
+        update(dt);
+      }
+      render(dt);
+      requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+
+    // تحديث المنطق
+    function update(dt) {
+      state.elapsed += dt;
+      updatePhase(car.x);
+      decayCombo(dt);
+      handleChair();
+      if (state.qte) {
+        state.qte.timer -= dt;
+        state.qte.progress = clamp(state.qte.progress - dt * 0.12, 0, 1);
+        ui.qteFill.style.width = (state.qte.progress * 100).toFixed(1) + '%';
+        if (state.qte.timer <= 0) endQTE(false);
+        updateHUD(dt);
+        updateEngineAudio();
+        return;
+      }
+      if (state.qteCooldown > 0) state.qteCooldown -= dt;
+
+      // التحكمات
+      let left = input.left;
+      let right = input.right;
+      if (state.controlsFlipped > 0) {
+        state.controlsFlipped -= dt;
+        left = input.right;
+        right = input.left;
+      }
+      const flipFactor = input.flip;
+      const effectiveLeft = flipFactor === 1 ? left : right;
+      const effectiveRight = flipFactor === 1 ? right : left;
+
+      let accel = 0;
+      if (effectiveLeft) accel -= CAR.accel;
+      if (effectiveRight) accel += CAR.accel;
+      if (!effectiveLeft && !effectiveRight) {
+        car.vx = approach(car.vx, 0, CAR.friction * dt * 20);
+      } else {
+        car.vx += accel * dt;
+      }
+
+      // حدود السرعة
+      const maxSpeed = state.boostTimer > 0 ? CAR.maxSpeed + 120 : CAR.maxSpeed;
+      if (car.vx > maxSpeed) car.vx = lerp(car.vx, maxSpeed, 0.2);
+      if (car.vx < CAR.maxReverse) car.vx = CAR.maxReverse;
+
+      if (state.nitroTimer > 0) {
+        state.nitroTimer -= dt;
+        car.vx += CAR.nitroForce * dt;
+      }
+      if (state.boostTimer > 0) {
+        state.boostTimer -= dt;
+      }
+
+      if (input.jumpQueued) {
+        tryJump();
+        input.jumpQueued = false;
+      }
+      if (input.nitroQueued) {
+        useNitro();
+        input.nitroQueued = false;
+      }
+      if (input.winchQueued) {
+        useWinch();
+        input.winchQueued = false;
+      }
+
+      if (state.massageActive && state.bannerTimer <= 0) {
+        showBanner('🙋‍♂️ مساج؟ اختر 1 / 2 / 3', 3);
+      }
+
+      // الفيزياء الأفقية
+      const sandInfluence = car.x > WORLD.sandStart && car.x < WORLD.sandEnd ? 0.75 : 1;
+      car.vx *= 1 - CAR.airDrag * dt * (sandInfluence < 1 ? 1.4 : 1);
+      car.x += car.vx * dt * sandInfluence;
+      car.x = clamp(car.x, 0, WORLD.finish + 180);
+
+      // الفيزياء الرأسية
+      car.vy += CAR.gravity * dt;
+      car.y += car.vy * dt;
+      const groundY = sampleGround(car.x);
+      if (car.y >= groundY) {
+        if (!car.onGround) spawnTireMark(car.x, groundY - 8);
+        car.y = groundY;
+        car.vy = 0;
+        car.onGround = true;
+      } else {
+        car.onGround = false;
+      }
+
+      // السرعة الظاهرية
+      car.speedKMH = Math.abs(car.vx) * 0.42;
+      car.s = car.speedKMH / 10;
+
+      // أحداث خاصة
+      if (car.x > 3200 && state.ooobaaaTimer <= 0) {
+        if (Math.random() < dt * 0.18) {
+          triggerOoobaaa();
+          state.ooobaaaTimer = 12;
+        }
+      } else {
+        state.ooobaaaTimer -= dt;
+      }
+
+      if (!state.massageActive && car.x > 5000 && car.x < 5400 && Math.random() < dt * 0.12) {
+        startMassageEvent();
+      }
+
+      if (!state.shalimarDone && car.x > WORLD.gateX - 120) {
+        startShalimarEvent();
+      }
+
+      if (!state.bossActive && car.x > WORLD.bossX - 60 && !state.bossResolved) {
+        startBossEvent();
+        state.bossResolved = true;
+      }
+
+      if (state.bossActive) {
+        state.bossTimer -= dt;
+        if (state.bossTimer <= 0) {
+          state.bossActive = false;
+          state.score = Math.max(0, state.score - GAME.bossPenalty);
+          showToast('⏱️ فاتك البوس! -' + GAME.bossPenalty);
+          playEffect('miss', 0.35, 220);
+        }
+      }
+
+      if (state.controlsFlipped > 0 && (input.left || input.right)) {
+        // لا شيء إضافي - التأثير مفعّل
+      }
+
+      if (car.x > WORLD.sandStart && car.x < WORLD.sandEnd && state.qteCooldown <= 0 && Math.random() < dt * 0.08) {
+        startQTE();
+      }
+
+      if (!state.shalimarChoice && state.shalimarDone) {
+        // ينتظر اختيار
+      }
+
+      if (state.bossActive && state.bossTimer > 0) {
+        // انتظار تسلسل المفاتيح
+      }
+
+      checkDogHits();
+
+      if (car.x >= WORLD.flagX && !state.ended) {
+        showBanner('🏁 وصلنا القمة!', 2);
+        endRun();
+      } else if (state.elapsed >= GAME.duration + 10 && !state.ended) {
+        endRun();
+      }
+
+      updateHUD(dt);
+      updateEngineAudio();
+    }
+
+    // استماع لأزرار البوس
+    window.addEventListener('keydown', (e) => {
+      if (state.bossActive) handleBossKey(e.key);
+    });
+
+    // الرسم العام
+    function render(dt) {
+      const w = canvas.width / dpr;
+      const h = canvas.height / dpr;
+      const cameraX = clamp(car.x - w * 0.35, 0, WORLD.finish - w * 0.25);
+      drawBackground(cameraX);
+      drawTireMarks(cameraX, dt);
+      drawGround(cameraX);
+      drawSpectators(cameraX, dt);
+      drawChair(cameraX);
+      drawDogs(cameraX, dt);
+      drawGate(cameraX);
+      drawFinish(cameraX);
+      drawCar(cameraX);
+    }
+  </script>
+</body>
+</html>
