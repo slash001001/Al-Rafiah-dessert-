@@ -1,0 +1,44 @@
+name: بلاغ عن عطل / Bug Report
+description: صف المشكلة أو العطل الذي واجهته في اللعبة
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        يرجى ملء الحقول التالية لمساعدتنا على تصحيح المشكلة.
+  - type: textarea
+    id: description
+    attributes:
+      label: الوصف / Description
+      description: صف ما حدث بالتفصيل.
+      placeholder: عند الدعس على الكلب تتجمد اللعبة...
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: خطوات إعادة المشكلة / Steps to Reproduce
+      description: الخطوات التي تؤدي لظهور المشكلة.
+      placeholder: |
+        1. افتح اللعبة
+        2. اضغط ...
+        3. لاحظ النتيجة
+  - type: textarea
+    id: expected
+    attributes:
+      label: النتيجة المتوقعة / Expected Behavior
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: صور أو تسجيلات / Screenshots
+      description: أرفق صورًا أو رابط فيديو إن أمكن.
+  - type: input
+    id: environment
+    attributes:
+      label: البيئة / Environment
+      description: نظام التشغيل والمتصفح (مثال: iPhone iOS 17 - Safari)
+  - type: textarea
+    id: additional
+    attributes:
+      label: ملاحظات إضافية / Additional Notes
