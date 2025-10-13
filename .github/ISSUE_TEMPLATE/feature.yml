@@ -1,30 +1,42 @@
 name: طلب ميزة / Feature Request
-description: اقترح تحسينًا أو ميزة جديدة
+description: اقترح ميزة أو تحسين للـ NFS Cinematic Edition
 title: "[Feature] "
 labels: ["enhancement"]
 body:
   - type: markdown
     attributes:
       value: |
-        ما الفكرة الجديدة التي تود إضافتها للعبة؟
-  - type: textarea
-    id: summary
-    attributes:
-      label: الوصف / Summary
-      description: ما الميزة التي تقترحها؟
-    validations:
-      required: true
+        شاركنا فكرتك وتوقعاتك.
   - type: textarea
     id: motivation
     attributes:
-      label: السبب / Motivation
+      label: الدافع / Motivation
       description: لماذا هذه الميزة مهمة؟
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: الوصف / Summary
+      description: صف الميزة أو التحسين المقترح.
+    validations:
+      required: true
   - type: textarea
     id: acceptance
     attributes:
       label: معايير القبول / Acceptance Criteria
-      description: كيف نعرف أن الميزة أُنجزت بنجاح؟
+      description: كيف نعرف أن الميزة اكتملت؟
+  - type: textarea
+    id: side_effects
+    attributes:
+      label: التأثيرات المحتملة / Side Effects
+      description: هل هناك تأثير على الأداء أو التوافق؟
+  - type: textarea
+    id: references
+    attributes:
+      label: مراجع / References
+      description: روابط أو صور توضيحية.
   - type: textarea
     id: additional
     attributes:
-      label: تفاصيل إضافية / Additional Details
+      label: ملاحظات إضافية / Additional Notes

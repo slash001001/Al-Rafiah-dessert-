@@ -1,7 +1,7 @@
 import { fitCanvas, dtClamp, timestamp, kmhFromVelocity, seededRandom } from './utils.js';
-import { unlockAudio, playEffect, tickEngine, suspendEngine, setMasterVolume, setAudioEnabled, getAudioSettings, haptics } from './audio.js';
+import { unlockAudio, playEffect, tickEngine, suspendEngine, setAudioEnabled, setBusVolume, getAudioSettings, haptics } from './audio.js';
 import { setupInput, getInputSnapshot, consumeAction, resetTransient, setInvertControls, scheduleInvert, registerTouchControl, registerQTEButton } from './input.js';
-import { WORLD, createSpectators, sampleGround, getPhaseEmoji } from './world.js';
+import { WORLD, createSpectators, sampleGround, getPhaseEmoji, createStars, initCamera, updateCamera } from './world.js';
 import { createPlayer, resetPlayer, updatePlayer, tryJump, useNitro, useWinch, applyHitSlow } from './player.js';
 import { createEntities, resetEntities, updateDogs, updateChair, updateSpectators } from './entities.js';
 import { createParticleSystem, spawnTrack, spawnBlood, spawnSand, spawnWind, updateParticles } from './particles.js';
@@ -47,12 +47,13 @@ const game = {
   time: 0,
   viewport: fitCanvas(canvas, ctx),
   lastTime: timestamp(),
-  cam: { x: 0, shake: 0 },
+  cam: initCamera(),
   fps: 60,
   frameCount: 0,
   fpsTimer: 0,
   lastInput: { left: false, right: false, rawLeft: false, rawRight: false },
   debug: false,
+  stars: createStars(),
 };
 
 const debugOverlay = document.getElementById('debugOverlay');
@@ -65,7 +66,7 @@ controls.forEach(btn => {
 document.querySelectorAll('#qteKeys button').forEach(btn => registerQTEButton(btn));
 
 setupInput();
-ensureStars();
+ensureStars(game.stars);
 
 canvas.addEventListener('pointerdown', unlockAudio, { once: true });
 
@@ -81,8 +82,10 @@ window.addEventListener('keydown', e => {
   events.handleBossKey(e.key);
 });
 
-setMasterVolume(settings.volume);
-setAudioEnabled(settings.sfx);
+setBusVolume('master', settings.masterVolume);
+setBusVolume('engine', settings.engineVolume);
+setBusVolume('sfx', settings.sfxVolume);
+setAudioEnabled(settings.audioEnabled);
 setInvertControls(settings.invert);
 
 const resetGame = () => {
@@ -103,8 +106,7 @@ const resetGame = () => {
   ui.hideBanner();
   ui.hideEndCard();
   ui.setHudInvert(false);
-  game.cam.x = 0;
-  game.cam.shake = 0;
+  game.cam = initCamera();
 };
 
 ui.restartBtn.addEventListener('click', () => {
@@ -180,8 +182,10 @@ const updateGame = dt => {
   updatePlayer(player, input, dt);
 
   const audioState = getAudioSettings();
-  if (audioState.enabled !== settings.sfx) setAudioEnabled(settings.sfx);
-  if (audioState.volume !== settings.volume) setMasterVolume(settings.volume);
+  if (audioState.enabled !== settings.audioEnabled) setAudioEnabled(settings.audioEnabled);
+  if (audioState.master !== settings.masterVolume) setBusVolume('master', settings.masterVolume);
+  if (audioState.engine !== settings.engineVolume) setBusVolume('engine', settings.engineVolume);
+  if (audioState.sfx !== settings.sfxVolume) setBusVolume('sfx', settings.sfxVolume);
 
   if (player.onGround) spawnTrack(particles, player.x, player.y - 6);
 
@@ -194,10 +198,10 @@ const updateGame = dt => {
   events.tryTriggers(player.x, game.time);
 
   const kmh = kmhFromVelocity(player.vx);
-  tickEngine(kmh);
-  spawnSpeedLines(kmh, game.viewport.width, game.viewport.height);
+  tickEngine(kmh, input.right ? 1 : 0.6, player.boostSec > 0 ? 1 : 0);
+  spawnSpeedLines(settings, kmh, game.viewport.width, game.viewport.height);
   updateSpeedLines(dt);
-  game.cam.shake = Math.max(game.cam.shake * 0.9, kmh > 110 ? (kmh - 110) * 0.02 : 0);
+  updateCamera(game.cam, { ...player, kmh }, settings, game.viewport, dt);
 
   if (player.x >= WORLD.FINISH_X && !game.finished) {
     game.finished = true;
@@ -234,10 +238,11 @@ const render = dt => {
     player,
     particles,
     entities,
-    dt,
-    input: game.lastInput,
     settings,
     camera: game.cam,
+    dt,
+    input: game.lastInput,
+    stars: game.stars,
   });
   if (game.debug) {
     updateDebugOverlay(debugOverlay, {

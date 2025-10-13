@@ -1,12 +1,22 @@
-name: بلاغ عن عطل / Bug Report
-description: صف المشكلة أو العطل الذي واجهته في اللعبة
+name: بلاغ عطل / Bug Report
+description: صف المشكلة أو العطل الذي واجهته في لعبة NFS Cinematic Edition
 title: "[Bug] "
 labels: ["bug"]
 body:
   - type: markdown
     attributes:
       value: |
-        يرجى ملء الحقول التالية لمساعدتنا على تصحيح المشكلة.
+        يرجى تعبئة التفاصيل التالية لتسريع إصلاح المشكلة.
+  - type: dropdown
+    id: priority
+    attributes:
+      label: الأولوية / Priority
+      options:
+        - High
+        - Medium
+        - Low
+    validations:
+      required: true
   - type: textarea
     id: description
     attributes:
@@ -19,7 +29,7 @@ body:
     id: steps
     attributes:
       label: خطوات إعادة المشكلة / Steps to Reproduce
-      description: الخطوات التي تؤدي لظهور المشكلة.
+      description: اذكر الخطوات التي تؤدي لظهور المشكلة.
       placeholder: |
         1. افتح اللعبة
         2. اضغط ...
@@ -29,15 +39,20 @@ body:
     attributes:
       label: النتيجة المتوقعة / Expected Behavior
   - type: textarea
-    id: screenshots
-    attributes:
-      label: صور أو تسجيلات / Screenshots
-      description: أرفق صورًا أو رابط فيديو إن أمكن.
-  - type: input
     id: environment
     attributes:
       label: البيئة / Environment
-      description: نظام التشغيل والمتصفح (مثال: iPhone iOS 17 - Safari)
+      description: المتصفح والجهاز (مثال: iPhone iOS 17 - Safari)
+  - type: textarea
+    id: console
+    attributes:
+      label: Console Log
+      description: الصق أي رسائل من Console.
+  - type: textarea
+    id: media
+    attributes:
+      label: صور أو فيديو / Evidence
+      description: أرفق لقطات شاشة أو فيديو إن أمكن.
   - type: textarea
     id: additional
     attributes:

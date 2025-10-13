@@ -8,8 +8,8 @@ export const WORLD = {
   DOGS_TO: 7600,
   SHALIMAR_X: 7800,
   BOSS_X: 8400,
-  FINISH_X: 9200,
-  LENGTH: 10500,
+  FINISH_X: 9300,
+  LENGTH: 11000,
   BASELINE: 420,
 };
 
@@ -18,17 +18,17 @@ const terrainCache = new Map();
 export const sampleGround = x => {
   const key = Math.floor(x);
   if (terrainCache.has(key)) return terrainCache.get(key);
-  const slope = Math.min(320, x * 0.038);
-  const undulation = Math.sin(x * 0.0026) * 32 + Math.sin((x + 600) * 0.0013) * 24;
-  const dunes = Math.sin((x + 1200) * 0.00035) * 46;
-  const crest = x > WORLD.FINISH_X ? (x - WORLD.FINISH_X) * 0.2 : 0;
-  const y = clamp(WORLD.BASELINE - slope + undulation + dunes - crest, 160, 520);
+  const slope = Math.min(360, x * 0.04);
+  const undulation = Math.sin(x * 0.0024) * 32 + Math.sin((x + 580) * 0.0013) * 26;
+  const dunes = Math.sin((x + 1100) * 0.00035) * 48;
+  const crest = x > WORLD.FINISH_X ? (x - WORLD.FINISH_X) * 0.22 : 0;
+  const y = clamp(WORLD.BASELINE - slope + undulation + dunes - crest, 150, 520);
   terrainCache.set(key, y);
   return y;
 };
 
 export const slopeAt = x => {
-  const delta = 6;
+  const delta = 8;
   const h0 = sampleGround(x - delta);
   const h1 = sampleGround(x + delta);
   return (h1 - h0) / (2 * delta);
@@ -44,13 +44,14 @@ export const getPhaseEmoji = x => {
   return '🏁 القمة';
 };
 
-export const createStars = (count = 140) => {
+export const createStars = (count = 180) => {
   const stars = [];
   for (let i = 0; i < count; i += 1) {
     stars.push({
       x: Math.random() * WORLD.LENGTH,
-      y: Math.random() * 0.4 + 0.05,
-      a: Math.random() * 0.6 + 0.2,
+      y: Math.random() * 0.45 + 0.02,
+      a: Math.random() * 0.65 + 0.2,
+      size: Math.random() * 1.6 + 0.8,
     });
   }
   return stars;
@@ -58,8 +59,8 @@ export const createStars = (count = 140) => {
 
 export const createSpectators = rng => {
   const spectators = [];
-  for (let i = 0; i < 16; i += 1) {
-    const x = 900 + i * 520 + randomRange(-90, 90);
+  for (let i = 0; i < 18; i += 1) {
+    const x = 900 + i * 520 + randomRange(-120, 90);
     spectators.push({
       x,
       offset: randomRange(60, 110),
@@ -68,4 +69,22 @@ export const createSpectators = rng => {
     });
   }
   return spectators;
+};
+
+export const initCamera = () => ({ x: 0, y: 0, roll: 0, lookAhead: 0.35, shake: 0 });
+
+export const updateCamera = (cam, player, settings, viewport, dt) => {
+  const look = settings.lookAhead ?? 0.35;
+  const targetX = clamp(player.x - viewport.width * (0.35 - look * 0.2) + player.vx * look * 0.25, 0, WORLD.LENGTH);
+  cam.x += (targetX - cam.x) * clamp(0.06 + look * 0.04, 0.04, 0.12);
+
+  const targetY = sampleGround(player.x + 120) - viewport.height * 0.55;
+  cam.y += (targetY - cam.y) * 0.08;
+
+  const slope = slopeAt(player.x);
+  const maxRoll = (settings.roll ?? 0.5) * 0.3;
+  cam.roll += (clamp(-slope * 0.8, -maxRoll, maxRoll) - cam.roll) * 0.12;
+
+  const shakeAmount = (settings.shake ?? 1) * (player.kmh / 220) + (player.boostSec > 0 ? 0.6 : 0);
+  cam.shake = cam.shake * Math.pow(0.92, dt * 60) + shakeAmount * 0.02;
 };

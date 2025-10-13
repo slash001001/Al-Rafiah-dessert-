@@ -1,8 +1,10 @@
 const SETTINGS_KEY = 'ta3s_gmc_pro_settings';
 
 const defaultSettings = {
-  volume: 0.7,
-  sfx: true,
+  masterVolume: 0.7,
+  engineVolume: 0.8,
+  sfxVolume: 0.8,
+  audioEnabled: true,
   blood: true,
   vibration: true,
   contrast: false,
@@ -10,6 +12,11 @@ const defaultSettings = {
   buttonScale: 1,
   language: 'ar',
   hudHidden: false,
+  lookAhead: 0.35,
+  shake: 1,
+  roll: 0.4,
+  speedlines: true,
+  bloom: true,
 };
 
 const strings = {
@@ -18,8 +25,11 @@ const strings = {
     end: { retry: 'إعادة اللعب', score: 'النقاط', time: 'الزمن', combo: 'أعلى كومبو', pb: 'أفضل نتيجة' },
     settings: {
       title: 'الإعدادات',
-      volume: 'مستوى الصوت',
-      sfx: 'تشغيل المؤثرات',
+      audioTitle: 'الصوت',
+      masterVolume: 'مستوى الصوت العام',
+      engineVolume: 'صوت المحرك',
+      fxVolume: 'المؤثرات',
+      audioEnabled: 'تشغيل الصوت',
       blood: 'الدم الكرتوني',
       vibration: 'الاهتزاز',
       contrast: 'نمط التباين العالي',
@@ -92,8 +102,10 @@ export const initUI = () => {
   const settingsToggle = document.getElementById('settingsToggle');
   const settingsClose = document.getElementById('settingsClose');
   const settingsPanel = document.getElementById('settingsPanel');
-  const settingVolume = document.getElementById('settingVolume');
+  const settingMaster = document.getElementById('settingMaster');
+  const settingEngine = document.getElementById('settingEngine');
   const settingSfx = document.getElementById('settingSfx');
+  const settingAudioEnabled = document.getElementById('settingAudioEnabled');
   const settingBlood = document.getElementById('settingBlood');
   const settingVibration = document.getElementById('settingVibration');
   const settingContrast = document.getElementById('settingContrast');
@@ -103,6 +115,11 @@ export const initUI = () => {
   const settingsFlipDev = document.getElementById('settingsFlipDev');
   const hudToggle = document.getElementById('hudToggle');
   const controlsButtons = document.querySelectorAll('#controls button');
+  const settingLookAhead = document.getElementById('settingLookAhead');
+  const settingShake = document.getElementById('settingShake');
+  const settingRoll = document.getElementById('settingRoll');
+  const settingSpeedlines = document.getElementById('settingSpeedlines');
+  const settingBloom = document.getElementById('settingBloom');
 
   const toastState = { timer: 0 };
   const bannerState = { timer: 0 };
@@ -124,13 +141,20 @@ export const initUI = () => {
   }
 
   function applySettings(cfg) {
-    settingVolume.value = cfg.volume;
-    settingSfx.checked = cfg.sfx;
+    settingMaster.value = cfg.masterVolume;
+    settingEngine.value = cfg.engineVolume;
+    settingSfx.value = cfg.sfxVolume;
+    settingAudioEnabled.checked = cfg.audioEnabled;
     settingBlood.checked = cfg.blood;
     settingVibration.checked = cfg.vibration;
     settingContrast.checked = cfg.contrast;
     settingInvert.checked = cfg.invert;
     settingButtonScale.value = cfg.buttonScale;
+    settingLookAhead.value = cfg.lookAhead;
+    settingShake.value = cfg.shake;
+    settingRoll.value = cfg.roll;
+    settingSpeedlines.checked = cfg.speedlines;
+    settingBloom.checked = cfg.bloom;
     settingLanguage.value = cfg.language;
     document.documentElement.style.setProperty('--button-scale', cfg.buttonScale);
     document.body.classList.toggle('high-contrast', cfg.contrast);
@@ -140,12 +164,20 @@ export const initUI = () => {
     hudToggle.textContent = cfg.hudHidden ? '🖥️' : '🛑';
   }
 
-  settingVolume.addEventListener('input', () => {
-    settings.volume = Number(settingVolume.value);
+  settingMaster.addEventListener('input', () => {
+    settings.masterVolume = Number(settingMaster.value);
     persistSettings();
   });
-  settingSfx.addEventListener('change', () => {
-    settings.sfx = settingSfx.checked;
+  settingEngine.addEventListener('input', () => {
+    settings.engineVolume = Number(settingEngine.value);
+    persistSettings();
+  });
+  settingSfx.addEventListener('input', () => {
+    settings.sfxVolume = Number(settingSfx.value);
+    persistSettings();
+  });
+  settingAudioEnabled.addEventListener('change', () => {
+    settings.audioEnabled = settingAudioEnabled.checked;
     persistSettings();
   });
   settingBlood.addEventListener('change', () => {
@@ -168,6 +200,26 @@ export const initUI = () => {
   settingButtonScale.addEventListener('change', () => {
     settings.buttonScale = Number(settingButtonScale.value);
     document.documentElement.style.setProperty('--button-scale', settings.buttonScale);
+    persistSettings();
+  });
+  settingLookAhead.addEventListener('input', () => {
+    settings.lookAhead = Number(settingLookAhead.value);
+    persistSettings();
+  });
+  settingShake.addEventListener('input', () => {
+    settings.shake = Number(settingShake.value);
+    persistSettings();
+  });
+  settingRoll.addEventListener('input', () => {
+    settings.roll = Number(settingRoll.value);
+    persistSettings();
+  });
+  settingSpeedlines.addEventListener('change', () => {
+    settings.speedlines = settingSpeedlines.checked;
+    persistSettings();
+  });
+  settingBloom.addEventListener('change', () => {
+    settings.bloom = settingBloom.checked;
     persistSettings();
   });
   settingLanguage.addEventListener('change', () => {

@@ -2,16 +2,16 @@
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="utf-8">
-  <title>Ta3s-GMC-2016-Pro — صعود الطعس (NFS‑Mode • Pro+)</title>
+  <title>Ta3s-GMC-2016-Ultra — صعود الطعس (NFS Cinematic Edition)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#061428">
+  <meta name="theme-color" content="#031225">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="stylesheet" href="./styles.css">
 </head>
 <body>
   <div id="app">
-    <canvas id="scene" aria-label="ساحة السباق"></canvas>
+    <canvas id="scene" aria-label="صعود الطعس – ساحة اللعب"></canvas>
 
     <div id="topBar" role="status">
       <div class="hud-item">🏎️ <span data-i18n="hud.speed">السرعة</span> <strong id="hudSpeed">0</strong> km/h</div>
@@ -56,46 +56,45 @@
           <button type="button" id="settingsClose" aria-label="إغلاق">✖</button>
         </header>
         <div class="panel-body">
-          <label>
-            <span data-i18n="settings.volume">مستوى الصوت</span>
-            <input type="range" id="settingVolume" min="0" max="1" step="0.05">
-          </label>
-          <label class="toggle">
-            <input type="checkbox" id="settingSfx">
-            <span data-i18n="settings.sfx">تشغيل المؤثرات</span>
-          </label>
-          <label class="toggle">
-            <input type="checkbox" id="settingBlood">
-            <span data-i18n="settings.blood">الدم الكرتوني</span>
-          </label>
-          <label class="toggle">
-            <input type="checkbox" id="settingVibration">
-            <span data-i18n="settings.vibration">الاهتزاز</span>
-          </label>
-          <label class="toggle">
-            <input type="checkbox" id="settingContrast">
-            <span data-i18n="settings.contrast">نمط التباين العالي</span>
-          </label>
-          <label class="toggle">
-            <input type="checkbox" id="settingInvert">
-            <span data-i18n="settings.invert">عكس الاتجاه</span>
-          </label>
-          <label>
-            <span data-i18n="settings.buttons">حجم الأزرار</span>
-            <select id="settingButtonScale">
-              <option value="0.9" data-i18n="settings.buttonsSmall">صغير</option>
-              <option value="1" data-i18n="settings.buttonsMedium" selected>متوسط</option>
-              <option value="1.2" data-i18n="settings.buttonsLarge">كبير</option>
-            </select>
-          </label>
-          <label>
-            <span data-i18n="settings.language">اللغة</span>
-            <select id="settingLanguage">
-              <option value="ar">العربية</option>
-              <option value="en">English</option>
-            </select>
-          </label>
-          <button type="button" id="settingsFlipDev">↔︎ <span data-i18n="settings.flip">قلب الاتجاه سريعًا</span></button>
+          <fieldset>
+            <legend data-i18n="settings.audioTitle">الصوت</legend>
+            <label><span data-i18n="settings.masterVolume">مستوى الصوت العام</span><input type="range" id="settingMaster" min="0" max="1" step="0.05"></label>
+            <label><span data-i18n="settings.engineVolume">صوت المحرك</span><input type="range" id="settingEngine" min="0" max="1" step="0.05"></label>
+            <label><span data-i18n="settings.fxVolume">المؤثرات</span><input type="range" id="settingSfx" min="0" max="1" step="0.05"></label>
+            <label class="toggle"><input type="checkbox" id="settingAudioEnabled"><span data-i18n="settings.audioEnabled">تشغيل الصوت</span></label>
+          </fieldset>
+          <fieldset>
+            <legend data-i18n="settings.cameraTitle">الكاميرا</legend>
+            <label><span data-i18n="settings.lookAhead">نظرة أمامية</span><input type="range" id="settingLookAhead" min="0" max="1" step="0.05"></label>
+            <label><span data-i18n="settings.shake">الاهتزاز</span><input type="range" id="settingShake" min="0" max="2" step="0.05"></label>
+            <label><span data-i18n="settings.roll">الميل</span><input type="range" id="settingRoll" min="0" max="1" step="0.05"></label>
+          </fieldset>
+          <fieldset>
+            <legend data-i18n="settings.effectsTitle">التأثيرات</legend>
+            <label class="toggle"><input type="checkbox" id="settingBlood"><span data-i18n="settings.blood">الدم الكرتوني</span></label>
+            <label class="toggle"><input type="checkbox" id="settingSpeedlines"><span data-i18n="settings.speedlines">سبيدلاينز</span></label>
+            <label class="toggle"><input type="checkbox" id="settingBloom"><span data-i18n="settings.bloom">توهج</span></label>
+            <label class="toggle"><input type="checkbox" id="settingContrast"><span data-i18n="settings.contrast">نمط التباين العالي</span></label>
+          </fieldset>
+          <fieldset>
+            <legend data-i18n="settings.accessibilityTitle">الوصول</legend>
+            <label class="toggle"><input type="checkbox" id="settingInvert"><span data-i18n="settings.invert">عكس الاتجاه</span></label>
+            <label class="toggle"><input type="checkbox" id="settingVibration"><span data-i18n="settings.vibration">الاهتزاز</span></label>
+            <label><span data-i18n="settings.buttons">حجم الأزرار</span>
+              <select id="settingButtonScale">
+                <option value="0.9" data-i18n="settings.buttonsSmall">صغير</option>
+                <option value="1" data-i18n="settings.buttonsMedium">متوسط</option>
+                <option value="1.2" data-i18n="settings.buttonsLarge">كبير</option>
+              </select>
+            </label>
+            <label><span data-i18n="settings.language">اللغة</span>
+              <select id="settingLanguage">
+                <option value="ar">العربية</option>
+                <option value="en">English</option>
+              </select>
+            </label>
+            <button type="button" id="settingsFlipDev">↔︎ <span data-i18n="settings.flip">قلب الاتجاه سريعًا</span></button>
+          </fieldset>
         </div>
       </div>
     </div>
@@ -116,6 +115,8 @@
     <div id="debugOverlay" hidden>
       <div id="debugContent"></div>
     </div>
+
+    <div id="err" hidden></div>
   </div>
 
   <script type="module" src="./src/main.js"></script>
