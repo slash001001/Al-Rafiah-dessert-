@@ -1,17 +1,15 @@
-import { formatTime } from './utils.js';
-import { setAudioEnabled, setMasterVolume } from './audio.js';
-import { registerTouchControl, registerQTEButton, setInvertControls, setQTEVisible } from './input.js';
-
-const SETTINGS_KEY = 'ta3s_gmc_settings';
+const SETTINGS_KEY = 'ta3s_gmc_pro_settings';
 
 const defaultSettings = {
   volume: 0.7,
   sfx: true,
   blood: true,
-  highContrast: false,
+  vibration: true,
+  contrast: false,
   invert: false,
   buttonScale: 1,
   language: 'ar',
+  hudHidden: false,
 };
 
 const strings = {
@@ -23,14 +21,18 @@ const strings = {
       volume: 'مستوى الصوت',
       sfx: 'تشغيل المؤثرات',
       blood: 'الدم الكرتوني',
+      vibration: 'الاهتزاز',
       contrast: 'نمط التباين العالي',
       invert: 'عكس الاتجاه',
       buttons: 'حجم الأزرار',
+      buttonsSmall: 'صغير',
+      buttonsMedium: 'متوسط',
+      buttonsLarge: 'كبير',
       language: 'اللغة',
       flip: 'قلب الاتجاه سريعًا',
     },
     qteSuccess: 'فكّ التغريز',
-    choicesHint: 'اضغط 1 / 2 / 3 للاختيار',
+    choiceHint: 'اضغط 1/2/3 للاختيار بسرعة',
   },
   en: {
     hud: { speed: 'Speed', score: 'Score', combo: 'Combo', nitro: 'Nitro', winch: 'Winch', time: 'Time' },
@@ -40,25 +42,27 @@ const strings = {
       volume: 'Master Volume',
       sfx: 'Enable SFX',
       blood: 'Cartoon Blood',
+      vibration: 'Vibration',
       contrast: 'High Contrast',
       invert: 'Invert Direction',
       buttons: 'Button Size',
+      buttonsSmall: 'Small',
+      buttonsMedium: 'Medium',
+      buttonsLarge: 'Large',
       language: 'Language',
       flip: 'Flip Direction Quickly',
     },
     qteSuccess: 'Freed the wheels',
-    choicesHint: 'Press 1 / 2 / 3 to choose',
+    choiceHint: 'Press 1/2/3 to choose quickly',
   },
 };
 
 const applyLanguage = lang => {
-  const table = strings[lang] || strings.ar;
+  const dict = strings[lang] || strings.ar;
   document.querySelectorAll('[data-i18n]').forEach(node => {
     const path = node.dataset.i18n.split('.');
-    let value = table;
-    for (const part of path) {
-      value = value?.[part];
-    }
+    let value = dict;
+    for (const part of path) value = value?.[part];
     if (typeof value === 'string') node.textContent = value;
   });
 };
@@ -71,8 +75,9 @@ export const initUI = () => {
   const hudNitro = document.getElementById('hudNitro');
   const hudWinch = document.getElementById('hudWinch');
   const hudTime = document.getElementById('hudTime');
-  const hudProgress = document.getElementById('hudProgress');
   const hudPhase = document.getElementById('hudPhase');
+  const hudProgress = document.getElementById('hudProgress');
+  const topBar = document.getElementById('topBar');
   const toast = document.getElementById('toast');
   const banner = document.getElementById('banner');
   const qte = document.getElementById('qte');
@@ -85,44 +90,22 @@ export const initUI = () => {
   const endPB = document.getElementById('endPB');
   const restartBtn = document.getElementById('restartBtn');
   const settingsToggle = document.getElementById('settingsToggle');
-  const settingsPanel = document.getElementById('settingsPanel');
   const settingsClose = document.getElementById('settingsClose');
+  const settingsPanel = document.getElementById('settingsPanel');
   const settingVolume = document.getElementById('settingVolume');
   const settingSfx = document.getElementById('settingSfx');
   const settingBlood = document.getElementById('settingBlood');
+  const settingVibration = document.getElementById('settingVibration');
   const settingContrast = document.getElementById('settingContrast');
   const settingInvert = document.getElementById('settingInvert');
   const settingButtonScale = document.getElementById('settingButtonScale');
   const settingLanguage = document.getElementById('settingLanguage');
   const settingsFlipDev = document.getElementById('settingsFlipDev');
-  const controls = document.querySelectorAll('#controls button');
-  const qteButtons = document.querySelectorAll('#qteKeys button');
-  const debugOverlay = document.getElementById('debugOverlay');
-  const debugContent = document.getElementById('debugContent');
-  const topBar = document.getElementById('topBar');
+  const hudToggle = document.getElementById('hudToggle');
+  const controlsButtons = document.querySelectorAll('#controls button');
 
-  controls.forEach(btn => {
-    const action = btn.dataset.control;
-    if (!action) return;
-    if (action.startsWith('qte:')) {
-      registerQTEButton(btn);
-    } else {
-      registerTouchControl(btn, action);
-    }
-  });
-
-  qteButtons.forEach(btn => {
-    registerQTEButton(btn);
-    btn.addEventListener('pointerdown', e => e.preventDefault());
-  });
-
-  const uiState = {
-    toastTimer: 0,
-    bannerTimer: 0,
-    settingsOpen: false,
-    highContrast: false,
-    strings: strings.ar,
-  };
+  const toastState = { timer: 0 };
+  const bannerState = { timer: 0 };
 
   const settings = loadSettings();
   applySettings(settings);
@@ -140,48 +123,49 @@ export const initUI = () => {
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
   }
 
-  function applySettings(s) {
-    settingVolume.value = s.volume;
-    settingSfx.checked = s.sfx;
-    settingBlood.checked = s.blood;
-    settingContrast.checked = s.highContrast;
-    settingInvert.checked = s.invert;
-    settingButtonScale.value = s.buttonScale;
-    settingLanguage.value = s.language;
-    document.body.classList.toggle('high-contrast', s.highContrast);
-    document.documentElement.style.setProperty('--button-scale', s.buttonScale);
-    setMasterVolume(s.volume);
-    setAudioEnabled(s.sfx);
-    setInvertControls(s.invert);
-    applyLanguage(s.language);
-    uiState.strings = strings[s.language] || strings.ar;
+  function applySettings(cfg) {
+    settingVolume.value = cfg.volume;
+    settingSfx.checked = cfg.sfx;
+    settingBlood.checked = cfg.blood;
+    settingVibration.checked = cfg.vibration;
+    settingContrast.checked = cfg.contrast;
+    settingInvert.checked = cfg.invert;
+    settingButtonScale.value = cfg.buttonScale;
+    settingLanguage.value = cfg.language;
+    document.documentElement.style.setProperty('--button-scale', cfg.buttonScale);
+    document.body.classList.toggle('high-contrast', cfg.contrast);
+    applyLanguage(cfg.language);
+    topBar.classList.toggle('hidden', cfg.hudHidden);
+    hudToggle.setAttribute('aria-pressed', String(cfg.hudHidden));
+    hudToggle.textContent = cfg.hudHidden ? '🖥️' : '🛑';
   }
 
   settingVolume.addEventListener('input', () => {
     settings.volume = Number(settingVolume.value);
-    setMasterVolume(settings.volume);
     persistSettings();
   });
   settingSfx.addEventListener('change', () => {
     settings.sfx = settingSfx.checked;
-    setAudioEnabled(settings.sfx);
     persistSettings();
   });
   settingBlood.addEventListener('change', () => {
     settings.blood = settingBlood.checked;
     persistSettings();
   });
+  settingVibration.addEventListener('change', () => {
+    settings.vibration = settingVibration.checked;
+    persistSettings();
+  });
   settingContrast.addEventListener('change', () => {
-    settings.highContrast = settingContrast.checked;
-    document.body.classList.toggle('high-contrast', settings.highContrast);
+    settings.contrast = settingContrast.checked;
+    document.body.classList.toggle('high-contrast', settings.contrast);
     persistSettings();
   });
   settingInvert.addEventListener('change', () => {
     settings.invert = settingInvert.checked;
-    setInvertControls(settings.invert);
     persistSettings();
   });
-  settingButtonScale.addEventListener('input', () => {
+  settingButtonScale.addEventListener('change', () => {
     settings.buttonScale = Number(settingButtonScale.value);
     document.documentElement.style.setProperty('--button-scale', settings.buttonScale);
     persistSettings();
@@ -189,15 +173,8 @@ export const initUI = () => {
   settingLanguage.addEventListener('change', () => {
     settings.language = settingLanguage.value;
     applyLanguage(settings.language);
-    uiState.strings = strings[settings.language] || strings.ar;
     persistSettings();
   });
-
-  const toggleSettings = open => {
-    const next = open ?? !settingsPanel.classList.contains('open');
-    settingsPanel.classList.toggle('open', next);
-    settingsPanel.setAttribute('aria-hidden', String(!next));
-  };
 
   settingsToggle.addEventListener('click', () => toggleSettings(true));
   settingsClose.addEventListener('click', () => toggleSettings(false));
@@ -208,44 +185,54 @@ export const initUI = () => {
   settingsFlipDev.addEventListener('click', () => {
     settings.invert = !settings.invert;
     settingInvert.checked = settings.invert;
-    setInvertControls(settings.invert);
     persistSettings();
   });
 
-  const showToast = (msg, duration = 1.4) => {
-    toast.textContent = msg;
+  hudToggle.addEventListener('click', () => {
+    settings.hudHidden = !settings.hudHidden;
+    topBar.classList.toggle('hidden', settings.hudHidden);
+    hudToggle.setAttribute('aria-pressed', String(settings.hudHidden));
+    hudToggle.textContent = settings.hudHidden ? '🖥️' : '🛑';
+    persistSettings();
+  });
+
+  const toggleSettings = open => {
+    settingsPanel.classList.toggle('open', open);
+    settingsPanel.setAttribute('aria-hidden', String(!open));
+  };
+
+  const showToast = (text, duration = 1.6) => {
+    toast.textContent = text;
     toast.classList.add('visible');
-    uiState.toastTimer = duration;
+    toastState.timer = duration;
   };
 
-  const showBanner = (msg, duration = 2.2) => {
-    banner.textContent = msg;
+  const showBanner = (text, duration = 2.2) => {
+    banner.textContent = text;
     banner.classList.add('visible');
-    uiState.bannerTimer = duration;
+    bannerState.timer = duration;
   };
 
-  const showChoiceBanner = (msg, options) => {
-    const hint = uiState.strings.choicesHint;
-    banner.innerHTML = `${msg}<br>${options.map(opt => opt.label).join(' · ')}<br><small>${hint}</small>`;
+  const showChoiceBanner = (text, options) => {
+    const hint = strings[settings.language].choiceHint;
+    banner.innerHTML = `${text}<br>${options.map(opt => opt.label).join(' • ')}<br><small>${hint}</small>`;
     banner.classList.add('visible');
-    uiState.bannerTimer = 4;
+    bannerState.timer = 3;
   };
 
   const hideBanner = () => {
     banner.classList.remove('visible');
-    uiState.bannerTimer = 0;
+    bannerState.timer = 0;
   };
 
   const setQTE = visible => {
     qte.classList.toggle('active', visible);
-    setQTEVisible(visible);
     qte.setAttribute('aria-hidden', String(!visible));
   };
 
   const updateQTE = (progress, expect) => {
     qteFill.style.width = `${(progress * 100).toFixed(1)}%`;
-    const title = expect === 'KeyK' ? '☁️ تغريز! اضرب K ثم L' : '☁️ تغريز! اضرب L ثم K';
-    qteTitle.textContent = title;
+    qteTitle.textContent = expect === 'KeyK' ? '☁️ تغريز! اضرب K ثم L' : '☁️ تغريز! اضرب L ثم K';
   };
 
   const updateHUD = data => {
@@ -255,13 +242,9 @@ export const initUI = () => {
     hudComboTime.textContent = data.comboTime > 0 ? `(${data.comboTime.toFixed(1)}s)` : '';
     hudNitro.textContent = data.nitro;
     hudWinch.textContent = data.winch;
-    hudTime.textContent = formatTime(data.time);
-    hudProgress.style.width = `${(data.progress * 100).toFixed(1)}%`;
+    hudTime.textContent = data.time.toFixed(1);
     hudPhase.textContent = data.phase;
-  };
-
-  const setHudInvert = active => {
-    topBar.classList.toggle('invert', active);
+    hudProgress.style.width = `${(data.progress * 100).toFixed(1)}%`;
   };
 
   const showEndCard = result => {
@@ -278,36 +261,35 @@ export const initUI = () => {
     endCard.setAttribute('aria-hidden', 'true');
   };
 
-  const setDebug = info => {
-    debugOverlay.hidden = false;
-    debugContent.textContent = info;
-  };
+  restartBtn.addEventListener('click', hideEndCard);
 
   return {
-    update(dt) {
-      if (uiState.toastTimer > 0) {
-        uiState.toastTimer -= dt;
-        if (uiState.toastTimer <= 0) toast.classList.remove('visible');
-      }
-      if (uiState.bannerTimer > 0) {
-        uiState.bannerTimer -= dt;
-        if (uiState.bannerTimer <= 0) hideBanner();
-      }
-    },
+    settings,
     showToast,
     showBanner,
-    showChoiceBanner,
     hideBanner,
+    showChoiceBanner,
     setQTE,
     updateQTE,
     updateHUD,
     showEndCard,
     hideEndCard,
     restartBtn,
-    settings,
-    setHudInvert,
-    setDebug,
-    toggleSettings,
-    strings: () => uiState.strings,
+    topBar,
+    controlsButtons,
+    strings: () => strings[settings.language] || strings.ar,
+    setHudInvert(active) {
+      topBar.classList.toggle('invert', active);
+    },
+    update(dt) {
+      if (toastState.timer > 0) {
+        toastState.timer -= dt;
+        if (toastState.timer <= 0) toast.classList.remove('visible');
+      }
+      if (bannerState.timer > 0) {
+        bannerState.timer -= dt;
+        if (bannerState.timer <= 0) hideBanner();
+      }
+    },
   };
 };

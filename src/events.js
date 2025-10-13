@@ -1,51 +1,38 @@
-import { WORLD_REGIONS } from './world.js';
-import { playSfx } from './audio.js';
+import { WORLD } from './world.js';
+import { playEffect, haptics } from './audio.js';
+
+const QTE_DURATION_MS = 3000;
+const QTE_STEP = 0.18;
+const QTE_DECAY = 0.12;
 
 export const createEventManager = deps => {
   const state = {
     qte: null,
+    choice: null,
     massageCooldown: 0,
     ooobaaaCooldown: 8,
-    bossSequence: null,
+    helicopterTriggered: false,
+    bossActive: false,
+    bossSequence: [],
     bossTimer: 0,
-    invertTimer: 0,
-    choicePending: null,
   };
 
-  const startQTE = () => {
-    if (state.qte) return;
-    state.qte = { progress: 0, timer: 3, expect: 'KeyK' };
-    deps.ui.showBanner('☁️ الرمل ناعم! بدّل K / L بسرعة', 3);
-    deps.ui.setQTE(true);
-    deps.haptics(60);
-    playSfx('qteStart');
+  const showChoice = (text, options, defaultValue = 2, timeout = 1000) => {
+    state.choice = { defaultValue, timer: timeout };
+    deps.ui.showChoiceBanner(text, options);
   };
 
-  const endQTE = success => {
-    if (!state.qte) return;
-    deps.ui.setQTE(false);
+  const resolveChoice = choice => {
+    if (!state.choice) return;
     deps.ui.hideBanner();
-    if (success) {
-      deps.score.addScore(deps.scoreboard, deps.rules.qteReward);
-      deps.ui.showToast(`✅ ${deps.strings().qteSuccess} +${deps.rules.qteReward}`);
-      playSfx('qteSuccess');
-      deps.player.boostSec = Math.max(deps.player.boostSec, 1.1);
-    } else {
-      deps.ui.showToast('❌ التغريز خلانا!');
-      playSfx('qteFail');
+    const pending = state.choice;
+    state.choice = null;
+    if (deps.entities.shalimar.triggered && !deps.entities.shalimar.resolved) {
+      deps.entities.shalimar.resolved = true;
+      resolveShalimar(choice);
+      return;
     }
-    state.qte = null;
-  };
-
-  const triggerMassage = () => {
-    state.massageCooldown = 12;
-    deps.ui.showChoiceBanner('🙋‍♂️ مساج؟', [
-      { label: '1) بعد الخط', value: 1 },
-      { label: '2) لا يا الحبيب', value: 2 },
-      { label: '3) تعال ندف', value: 3 },
-    ]);
-    state.choicePending = { type: 'massage', timer: 1.2, default: 2 };
-    playSfx('boss', -80);
+    resolveMassage(choice);
   };
 
   const resolveMassage = choice => {
@@ -60,46 +47,54 @@ export const createEventManager = deps => {
     }
   };
 
-  const triggerOoobaaa = () => {
-    state.ooobaaaCooldown = 10;
-    deps.score.addScore(deps.scoreboard, deps.rules.ooobaaaBonus);
-    deps.player.boostSec = Math.max(deps.player.boostSec, 1.4);
-    deps.ui.showBanner('🗣️ اوووباااا! +' + deps.rules.ooobaaaBonus, 1.4);
-    playSfx('ooobaaa');
-    deps.haptics([40, 30, 40]);
-  };
-
-  const triggerShalimar = () => {
-    if (deps.entities.shalimar.triggered) return;
-    deps.entities.shalimar.triggered = true;
-    deps.ui.showChoiceBanner('🍽️ شاليمار! وش تختار؟', [
-      { label: '1) كبسة', value: 1 },
-      { label: '2) برياني', value: 2 },
-      { label: '3) مفاجأة', value: 3 },
-    ]);
-    state.choicePending = { type: 'shalimar', timer: 1.5, default: 2 };
-  };
-
   const resolveShalimar = choice => {
     if (choice === 1) {
       deps.score.addScore(deps.scoreboard, deps.rules.shalimarBoost);
       deps.player.boostSec = Math.max(deps.player.boostSec, 2.5);
       deps.ui.showToast('🍗 كبسة! +' + deps.rules.shalimarBoost);
-      playSfx('boost');
+      playEffect('boost');
     } else if (choice === 2) {
       deps.player.vx *= 0.9;
       deps.ui.showToast('🍛 برياني… ثقلنا شوي');
-      playSfx('miss');
+      playEffect('miss');
     } else {
       if (Math.random() < 0.5) {
         deps.player.nitro += 1;
         deps.ui.showToast('🎁 نيترو إضافي!');
       } else {
-        deps.player.boostSec = Math.max(deps.player.boostSec, 1.2);
-        deps.ui.showToast('💨 غبرة مجنونة!');
+        deps.particles.spawnWind(deps.player.x, deps.player.y - 20, -deps.player.direction || 1);
+        deps.ui.showToast('💨 غبرة مفاجئة!');
       }
-      playSfx('boost', 40);
+      playEffect('boost', { detune: 40 });
     }
+  };
+
+  const triggerMassage = () => {
+    state.massageCooldown = 12;
+    showChoice('🙋‍♂️ مساج؟', [
+      { label: '1) بعد الخط', value: 1 },
+      { label: '2) لا يا الحبيب', value: 2 },
+      { label: '3) تعال ندف', value: 3 },
+    ]);
+    playEffect('boss', { detune: -80 });
+  };
+
+  const triggerOoobaaa = () => {
+    state.ooobaaaCooldown = 10;
+    deps.score.addScore(deps.scoreboard, deps.rules.ooobaaaBonus);
+    deps.player.boostSec = Math.max(deps.player.boostSec, 1.4);
+    deps.ui.showBanner('🗣️ اوووباااا! +' + deps.rules.ooobaaaBonus, 1.4);
+    playEffect('ooobaaa');
+    haptics([40, 30, 40]);
+  };
+
+  const triggerShalimar = () => {
+    deps.entities.shalimar.triggered = true;
+    showChoice('🍽️ شاليمار! وش تختار؟', [
+      { label: '1) كبسة', value: 1 },
+      { label: '2) برياني', value: 2 },
+      { label: '3) مفاجأة', value: 3 },
+    ], 2, 1500);
   };
 
   const triggerHelicopter = () => {
@@ -109,15 +104,15 @@ export const createEventManager = deps => {
       deps.player.vx += 180;
       deps.player.boostSec = Math.max(deps.player.boostSec, 1.6);
       deps.ui.showBanner('🚁 هليكوبتر — سحب! امسك الحبل', 1.6);
-      deps.spawnSand(deps.player.x - 60, deps.player.y - 16, -1);
-      playSfx('boost', 40);
+      deps.particles.spawnWind(deps.player.x - 60, deps.player.y - 12, -1);
+      playEffect('wind');
     } else {
-      deps.player.vx *= 0.8;
+      deps.player.vx *= 0.78;
       deps.ui.showBanner('🚁 هليكوبتر — غبرة!', 1.6);
-      deps.spawnSand(deps.player.x + 60, deps.player.y - 16, 1);
-      playSfx('miss', -40);
+      deps.particles.spawnWind(deps.player.x + 60, deps.player.y - 12, 1);
+      playEffect('wind', { detune: -40 });
     }
-    deps.haptics([30, 30, 30]);
+    haptics([30, 30, 30]);
   };
 
   const triggerBoss = () => {
@@ -125,139 +120,124 @@ export const createEventManager = deps => {
     deps.entities.boss.triggered = true;
     deps.entities.boss.active = true;
     state.bossSequence = ['ArrowUp', 'ArrowLeft', 'ArrowUp'];
-    state.bossTimer = 1.5;
-    state.invertTimer = 2.2;
-    deps.ui.showBanner('🤪 Dumb & Dumber قلبوا الأزرار! نفّذ ↑ ← ↑ بسرعة', 3);
+    state.bossTimer = 1500;
+    deps.input.scheduleInvert(2);
     deps.ui.setHudInvert(true);
-    deps.haptics([90, 60, 90]);
-    playSfx('boss');
+    deps.ui.showBanner('🤪 Dumb & Dumber قلبوا الأزرار! نفّذ ↑ ← ↑ بسرعة', 2.8);
+    playEffect('boss');
+    haptics([90, 60, 90]);
   };
 
-  const handleBossInput = key => {
-    if (!deps.entities.boss.active || !state.bossSequence) return;
-    const expected = state.bossSequence[0];
-    if (key === expected) {
+  const handleBossKey = key => {
+    if (!deps.entities.boss.active || !state.bossSequence.length) return;
+    if (key === state.bossSequence[0]) {
       state.bossSequence.shift();
-      playSfx('qteSuccess', 80);
-      if (state.bossSequence.length === 0) {
+      playEffect('qteSuccess', { detune: 80 });
+     if (!state.bossSequence.length) {
         deps.entities.boss.active = false;
-        state.bossSequence = null;
+        state.bossTimer = 0;
         deps.score.addScore(deps.scoreboard, deps.rules.bossReward);
         deps.player.nitro = Math.max(deps.player.nitro, 1);
         deps.player.winch = Math.max(deps.player.winch, 1);
         deps.scoreboard.achievements.bossSlayer = true;
-        deps.ui.showToast(`🤜🤛 هزمتهم! +${deps.rules.bossReward}`);
-        playSfx('boost');
+        deps.ui.showToast(`🤜🤛 هزمت Dumb & Dumber! +${deps.rules.bossReward}`);
+        playEffect('boost');
+        deps.ui.setHudInvert(false);
       }
     } else {
       deps.entities.boss.active = false;
-      state.bossSequence = null;
+      state.bossTimer = 0;
       deps.score.addScore(deps.scoreboard, -deps.rules.bossPenalty);
       deps.ui.showToast(`🙃 فشل البوس! -${deps.rules.bossPenalty}`);
-      playSfx('miss');
+      playEffect('miss');
+      deps.ui.setHudInvert(false);
     }
   };
 
-  const update = dt => {
-    if (state.ooobaaaCooldown > 0) state.ooobaaaCooldown -= dt;
-    if (state.massageCooldown > 0) state.massageCooldown -= dt;
-    if (state.bossTimer > 0) {
-      state.bossTimer -= dt;
-      if (state.bossTimer <= 0 && deps.entities.boss.active) {
-        deps.entities.boss.active = false;
-        state.bossSequence = null;
-        deps.score.addScore(deps.scoreboard, -deps.rules.bossPenalty);
-        deps.ui.showToast(`⏱️ فاتك البوس! -${deps.rules.bossPenalty}`);
-        playSfx('miss');
-      }
-    }
-    if (state.invertTimer > 0) {
-      state.invertTimer -= dt;
-      if (state.invertTimer <= 0) {
-        deps.ui.setHudInvert(false);
-      }
-    }
-    if (state.choicePending) {
-      state.choicePending.timer -= dt;
-      if (state.choicePending.timer <= 0) {
-        const pending = state.choicePending;
-        state.choicePending = null;
-        handleChoice(pending.default);
-      }
-    }
-    if (state.qte) {
-      state.qte.timer -= dt;
-      state.qte.progress = Math.max(0, state.qte.progress - dt * 0.12);
-      deps.ui.updateQTE(state.qte.progress, state.qte.expect);
-      if (state.qte.timer <= 0) {
-        endQTE(false);
-      }
-    }
-  };
-
-  const tryStartEvents = (playerX, time) => {
-    if (playerX > WORLD_REGIONS.SAND_FROM && playerX < WORLD_REGIONS.SAND_TO && !state.qte && Math.random() < 0.05) {
-      startQTE();
-    }
-    if (playerX > 3200 && state.ooobaaaCooldown <= 0) {
-      triggerOoobaaa();
-    }
-    if (!deps.entities.shalimar.triggered && playerX > WORLD_REGIONS.SHALIMAR_X - 140) {
-      triggerShalimar();
-    }
-    if (state.massageCooldown <= 0 && playerX > 5200 && playerX < 5600) {
-      triggerMassage();
-    }
-    if (time > 30 && time < 45 && !deps.entities.helicopter.triggered) {
-      triggerHelicopter();
-    }
-    if (!deps.entities.boss.triggered && playerX > WORLD_REGIONS.BOSS_X - 120) {
-      triggerBoss();
-    }
-  };
-
-  const handleChoice = choice => {
-    deps.ui.hideBanner();
-    state.choicePending = null;
-    if (deps.entities.shalimar.triggered && !deps.entities.shalimar.resolved) {
-      deps.entities.shalimar.resolved = true;
-      resolveShalimar(choice);
-      return;
-    }
-    resolveMassage(choice);
+  const startQTE = () => {
+    if (state.qte) return;
+    state.qte = { progress: 0, timer: QTE_DURATION_MS, expect: 'KeyK' };
+    deps.ui.setQTE(true);
+    deps.ui.showBanner('☁️ تغريز! بدّل K / L بسرعة', 3);
+    playEffect('qteStart');
   };
 
   const handleQTEKey = key => {
     if (!state.qte) return;
     if (key === state.qte.expect) {
-      state.qte.progress = Math.min(1, state.qte.progress + 0.2);
+      state.qte.progress = Math.min(1, state.qte.progress + QTE_STEP);
       state.qte.expect = key === 'KeyK' ? 'KeyL' : 'KeyK';
       deps.ui.updateQTE(state.qte.progress, state.qte.expect);
-      playSfx('qteSuccess', 40);
-      if (state.qte.progress >= 1) {
-        endQTE(true);
-      }
+      playEffect('qteSuccess', { detune: 40 });
+      if (state.qte.progress >= 1) endQTE(true);
     } else {
-      state.qte.progress = Math.max(0, state.qte.progress - 0.1);
-      playSfx('miss');
+      state.qte.progress = Math.max(0, state.qte.progress - QTE_STEP * 0.6);
       deps.ui.updateQTE(state.qte.progress, state.qte.expect);
+      playEffect('qteFail', { detune: -40 });
     }
   };
 
-  const forceEndQTE = () => endQTE(false);
+  const endQTE = success => {
+    if (!state.qte) return;
+    deps.ui.setQTE(false);
+    deps.ui.hideBanner();
+    if (success) {
+      deps.score.addScore(deps.scoreboard, deps.rules.qteReward);
+      deps.player.boostSec = Math.max(deps.player.boostSec, 1.1);
+      deps.ui.showToast(`✅ ${deps.ui.strings().qteSuccess} +${deps.rules.qteReward}`);
+    } else {
+      deps.ui.showToast('❌ التغريز خلانا!');
+      playEffect('miss');
+    }
+    state.qte = null;
+  };
+
+  const update = dt => {
+    if (state.ooobaaaCooldown > 0) state.ooobaaaCooldown -= dt;
+    if (state.massageCooldown > 0) state.massageCooldown -= dt;
+    if (state.choice) {
+      state.choice.timer -= dt * 1000;
+      if (state.choice.timer <= 0) resolveChoice(state.choice.defaultValue);
+    }
+    if (state.qte) {
+      state.qte.timer -= dt * 1000;
+      state.qte.progress = Math.max(0, state.qte.progress - QTE_DECAY * dt);
+      deps.ui.updateQTE(state.qte.progress, state.qte.expect);
+      if (state.qte.timer <= 0) endQTE(false);
+    }
+    if (deps.entities.boss.active) {
+      state.bossTimer -= dt * 1000;
+      if (state.bossTimer <= 0) {
+        deps.entities.boss.active = false;
+        deps.score.addScore(deps.scoreboard, -deps.rules.bossPenalty);
+        deps.ui.showToast(`⏱️ فاتك البوس! -${deps.rules.bossPenalty}`);
+        playEffect('miss');
+        deps.ui.setHudInvert(false);
+      }
+    }
+  };
+
+  const tryTriggers = (playerX, time) => {
+    if (playerX > WORLD.SAND_FROM && playerX < WORLD.SAND_TO && !state.qte && Math.random() < 0.015) startQTE();
+    if (playerX > 3200 && state.ooobaaaCooldown <= 0) triggerOoobaaa();
+    if (!deps.entities.shalimar.triggered && playerX > WORLD.SHALIMAR_X - 120) triggerShalimar();
+    if (state.massageCooldown <= 0 && playerX > 5200 && playerX < 5600) triggerMassage();
+    if (!state.helicopterTriggered && time > 30 && time < 45) triggerHelicopter();
+    if (!deps.entities.boss.triggered && playerX > WORLD.BOSS_X - 120) triggerBoss();
+  };
 
   const finish = () => {
-    deps.ui.showBanner('😂 طبخنا… بس نسينا الملح 🧂', 3.2);
+    deps.ui.showBanner('😂 طبخنا… بس نسينا الملح 🧂', 3);
   };
 
   return {
-    update,
-    tryStartEvents,
-    handleChoice,
-    handleQTEKey,
-    forceEndQTE,
-    finish,
-    handleBossInput,
     state,
+    update,
+    tryTriggers,
+    handleBossKey,
+    handleChoice: resolveChoice,
+    handleQTEKey,
+    endQTE,
+    finish,
   };
 };

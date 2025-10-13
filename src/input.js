@@ -2,6 +2,7 @@ const state = {
   holdLeft: false,
   holdRight: false,
   invert: 1,
+  invertTimer: 0,
   actions: {
     jump: false,
     nitro: false,
@@ -11,12 +12,11 @@ const state = {
   },
 };
 
-const touchButtons = new Map();
+const touchMap = new Map();
 const qteButtons = [];
+let qteActive = false;
 
-let qteEnabled = false;
-
-const keyMap = {
+const keyHoldMap = {
   ArrowLeft: 'holdLeft',
   ArrowRight: 'holdRight',
   a: 'holdLeft',
@@ -25,7 +25,7 @@ const keyMap = {
   D: 'holdRight',
 };
 
-const pressMap = {
+const keyPressMap = {
   ArrowUp: 'jump',
   ' ': 'jump',
   Spacebar: 'jump',
@@ -37,50 +37,32 @@ const pressMap = {
   Q: 'winch',
 };
 
-const choiceMap = { '1': 1, '2': 2, '3': 3 };
-
-const qteKeySet = new Set(['k', 'K', 'l', 'L']);
-
-const activePointers = new Map();
-
-const gamepadState = {
-  timestamp: 0,
-};
+const choiceKeys = { '1': 1, '2': 2, '3': 3 };
+const qteKeys = new Set(['k', 'K', 'l', 'L']);
 
 const setHold = (key, value) => {
   if (key === 'holdLeft') state.holdLeft = value;
   if (key === 'holdRight') state.holdRight = value;
 };
 
-const enqueueAction = (action, value = true) => {
-  if (action === 'choice') {
-    state.actions.choice = value;
-  } else if (action === 'qteKey') {
-    state.actions.qteKey = value;
-  } else {
-    state.actions[action] = value;
-  }
+const enqueue = (action, value = true) => {
+  if (action === 'choice') state.actions.choice = value;
+  else if (action === 'qteKey') state.actions.qteKey = value;
+  else state.actions[action] = value;
 };
 
-const handleKeyDown = ev => {
-  if (keyMap[ev.key]) {
-    setHold(keyMap[ev.key], true);
-  }
-  if (pressMap[ev.key]) {
-    enqueueAction(pressMap[ev.key]);
-  }
-  if (choiceMap[ev.key]) {
-    enqueueAction('choice', choiceMap[ev.key]);
-  }
-  if (qteKeySet.has(ev.key) && qteEnabled) {
-    enqueueAction('qteKey', ev.key.toUpperCase() === 'K' ? 'KeyK' : 'KeyL');
-  }
+const handleKeyDown = event => {
+  const hold = keyHoldMap[event.key];
+  if (hold) setHold(hold, true);
+  const press = keyPressMap[event.key];
+  if (press) enqueue(press);
+  if (choiceKeys[event.key]) enqueue('choice', choiceKeys[event.key]);
+  if (qteActive && qteKeys.has(event.key)) enqueue('qteKey', event.key.toUpperCase() === 'K' ? 'KeyK' : 'KeyL');
 };
 
-const handleKeyUp = ev => {
-  if (keyMap[ev.key]) {
-    setHold(keyMap[ev.key], false);
-  }
+const handleKeyUp = event => {
+  const hold = keyHoldMap[event.key];
+  if (hold) setHold(hold, false);
 };
 
 export const setupInput = () => {
@@ -96,30 +78,25 @@ const touchStart = (btn, action) => {
   if (!action) return;
   const [type, value] = action.split(':');
   if (type === 'hold') {
-    if (value === 'left') state.holdLeft = true;
-    if (value === 'right') state.holdRight = true;
-    activePointers.set(btn, { type, value });
+    setHold(`hold${value[0].toUpperCase()}${value.slice(1)}`, true);
+    touchMap.set(btn, { type, value });
   } else if (type === 'press') {
-    enqueueAction(value, true);
+    enqueue(value);
   } else if (type === 'choice') {
-    enqueueAction('choice', Number(value));
-  } else if (type === 'qte') {
-    if (qteEnabled) enqueueAction('qteKey', value);
+    enqueue('choice', Number(value));
+  } else if (type === 'qte' && qteActive) {
+    enqueue('qteKey', value);
   }
 };
 
 const touchEnd = btn => {
-  const info = activePointers.get(btn);
+  const info = touchMap.get(btn);
   if (!info) return;
-  if (info.type === 'hold') {
-    if (info.value === 'left') state.holdLeft = false;
-    if (info.value === 'right') state.holdRight = false;
-  }
-  activePointers.delete(btn);
+  if (info.type === 'hold') setHold(info.value === 'left' ? 'holdLeft' : 'holdRight', false);
+  touchMap.delete(btn);
 };
 
 export const registerTouchControl = (btn, action) => {
-  touchButtons.set(btn, action);
   btn.addEventListener('pointerdown', e => {
     e.preventDefault();
     touchStart(btn, action);
@@ -137,50 +114,40 @@ export const registerQTEButton = btn => {
 };
 
 export const setQTEVisible = visible => {
-  qteEnabled = visible;
-  qteButtons.forEach(btn => {
-    btn.classList.toggle('hidden', !visible);
-  });
+  qteActive = visible;
+  qteButtons.forEach(btn => btn.classList.toggle('hidden', !visible));
 };
 
 export const setInvertControls = invert => {
   state.invert = invert ? -1 : 1;
 };
 
+export const scheduleInvert = seconds => {
+  state.invertTimer = Math.max(state.invertTimer, seconds);
+};
+
 export const consumeAction = key => {
   const value = state.actions[key];
-  state.actions[key] = key === 'choice' ? null : false;
+  if (key === 'choice') state.actions.choice = null;
+  else state.actions[key] = false;
   return value;
 };
 
-export const getInputSnapshot = () => ({
-  left: state.invert === 1 ? state.holdLeft : state.holdRight,
-  right: state.invert === 1 ? state.holdRight : state.holdLeft,
-  rawLeft: state.holdLeft,
-  rawRight: state.holdRight,
-});
-
-export const pollGamepad = () => {
-  const pads = navigator.getGamepads?.() || [];
-  const pad = pads[0];
-  if (!pad || !pad.connected) return;
-  if (pad.timestamp === gamepadState.timestamp) return;
-  gamepadState.timestamp = pad.timestamp;
-  const axis = pad.axes[0] || 0;
-  state.holdLeft = axis < -0.2;
-  state.holdRight = axis > 0.2;
-  pad.buttons.forEach((btn, index) => {
-    if (!btn.pressed) return;
-    if (index === 0 || index === 1) enqueueAction('jump');
-    if (index === 2) enqueueAction('nitro');
-    if (index === 3) enqueueAction('winch');
-  });
+export const getInputSnapshot = () => {
+  if (state.invertTimer > 0) state.invertTimer = Math.max(0, state.invertTimer - 1 / 60);
+  const invert = state.invertTimer > 0 ? -state.invert : state.invert;
+  return {
+    left: invert === 1 ? state.holdLeft : state.holdRight,
+    right: invert === 1 ? state.holdRight : state.holdLeft,
+    rawLeft: state.holdLeft,
+    rawRight: state.holdRight,
+    invertActive: invert === -1,
+  };
 };
 
 export const resetTransient = () => {
   state.actions.jump = false;
   state.actions.nitro = false;
   state.actions.winch = false;
-  state.actions.choice = null;
   state.actions.qteKey = null;
 };

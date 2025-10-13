@@ -1,28 +1,28 @@
-import { fitCanvas, dtClamp, timestamp, seededRng } from './utils.js';
-import { unlockAudio, playSfx, tickEngine, suspendEngine } from './audio.js';
-import { setupInput, getInputSnapshot, consumeAction, pollGamepad, resetTransient } from './input.js';
-import { WORLD_REGIONS, worldLength, getPhaseEmoji, sampleGround } from './world.js';
-import { createPlayer, updatePlayer, tryJump, applyNitro, applyWinch, hitSlowdown } from './player.js';
+import { fitCanvas, dtClamp, timestamp, kmhFromVelocity, seededRandom } from './utils.js';
+import { unlockAudio, playEffect, tickEngine, suspendEngine, setMasterVolume, setAudioEnabled, getAudioSettings, haptics } from './audio.js';
+import { setupInput, getInputSnapshot, consumeAction, resetTransient, setInvertControls, scheduleInvert, registerTouchControl, registerQTEButton } from './input.js';
+import { WORLD, createSpectators, sampleGround, getPhaseEmoji } from './world.js';
+import { createPlayer, resetPlayer, updatePlayer, tryJump, useNitro, useWinch, applyHitSlow } from './player.js';
 import { createEntities, resetEntities, updateDogs, updateChair, updateSpectators } from './entities.js';
-import { createParticleSystem, spawnTrack, spawnBlood, spawnSand, updateParticles } from './particles.js';
-import { createScoreboard, addScore, registerComboHit, dropCombo, tickCombo, loadProgress, evaluatePB } from './score.js';
+import { createParticleSystem, spawnTrack, spawnBlood, spawnSand, spawnWind, updateParticles } from './particles.js';
+import { createScoreboard, addScore, registerCombo, dropCombo, tickCombo, loadProgress, updatePersonalBest } from './score.js';
 import { createEventManager } from './events.js';
 import { initUI } from './ui.js';
-import { createRenderer, cameraShakeTick, spawnSpeedLines, updateSpeedLines } from './render.js';
-import { runSelfTest } from './selftest.js';
+import { ensureStars, spawnSpeedLines, updateSpeedLines, renderScene } from './render.js';
+import { selfTestFitAndGround, updateDebugOverlay } from './selftest.js';
 
 const canvas = document.getElementById('scene');
 const ctx = canvas.getContext('2d');
 
-const rng = seededRng(0x1337);
+const rng = seededRandom(0x1337);
 const ui = initUI();
-const renderer = createRenderer(ctx, canvas);
-
+const settings = ui.settings;
 const player = createPlayer();
 const particles = createParticleSystem();
 const scoreboard = createScoreboard();
 loadProgress(scoreboard);
 const entities = createEntities(rng);
+entities.spectators = createSpectators(rng);
 
 const events = createEventManager({
   ui,
@@ -37,84 +37,98 @@ const events = createEventManager({
   },
   player,
   entities,
-  spawnSand: (x, y, dir) => spawnSand(particles, x, y, dir),
-  strings: ui.strings,
-  haptics: pattern => navigator.vibrate?.(pattern),
+  particles: { spawnWind },
+  input: { scheduleInvert },
 });
 
-const gameState = {
+const game = {
   running: true,
-  time: 0,
   finished: false,
+  time: 0,
   viewport: fitCanvas(canvas, ctx),
-  lastInput: {
-    left: false,
-    right: false,
-    rawLeft: false,
-    rawRight: false,
-  },
+  lastTime: timestamp(),
+  cam: { x: 0, shake: 0 },
+  fps: 60,
+  frameCount: 0,
+  fpsTimer: 0,
+  lastInput: { left: false, right: false, rawLeft: false, rawRight: false },
+  debug: false,
 };
 
-let lastTime = timestamp();
+const debugOverlay = document.getElementById('debugOverlay');
+
+const controls = document.querySelectorAll('#controls button');
+controls.forEach(btn => {
+  const action = btn.dataset.control;
+  if (action) registerTouchControl(btn, action);
+});
+document.querySelectorAll('#qteKeys button').forEach(btn => registerQTEButton(btn));
+
+setupInput();
+ensureStars();
+
+canvas.addEventListener('pointerdown', unlockAudio, { once: true });
+
+window.addEventListener('resize', () => {
+  game.viewport = fitCanvas(canvas, ctx);
+});
+
+window.addEventListener('keydown', e => {
+  if (e.key === 'F1') {
+    game.debug = !game.debug;
+    debugOverlay.hidden = !game.debug;
+  }
+  events.handleBossKey(e.key);
+});
+
+setMasterVolume(settings.volume);
+setAudioEnabled(settings.sfx);
+setInvertControls(settings.invert);
 
 const resetGame = () => {
-  gameState.running = true;
-  gameState.finished = false;
-  gameState.time = 0;
-  resetEntities(entities, rng);
+  game.running = true;
+  game.finished = false;
+  game.time = 0;
   scoreboard.score = 0;
-  scoreboard.comboLevel = 0;
+  scoreboard.comboCount = 0;
   scoreboard.comboTimer = 0;
-  scoreboard.maxCombo = 1;
-  scoreboard.achievements.firstBlood = false;
-  player.nitro = 2;
-  player.winch = 1;
-  player.boostSec = 0;
-  player.hitSlow = 0;
-  player.vx = 80;
-  player.vy = 0;
-  player.x = 80;
-  player.y = sampleGround(player.x);
+  scoreboard.comboMax = 1;
+  scoreboard.achievements.chairDodge = false;
+  resetPlayer(player);
+  resetEntities(entities, rng, createSpectators);
   particles.tracks.length = 0;
   particles.blood.length = 0;
   particles.sand.length = 0;
+  particles.wind.length = 0;
   ui.hideBanner();
   ui.hideEndCard();
+  ui.setHudInvert(false);
+  game.cam.x = 0;
+  game.cam.shake = 0;
 };
 
 ui.restartBtn.addEventListener('click', () => {
   resetGame();
+  playEffect('boost', { detune: -40, dur: 0.25 });
 });
 
-window.addEventListener('resize', () => {
-  gameState.viewport = fitCanvas(canvas, ctx);
-});
-
-canvas.addEventListener('pointerdown', () => {
-  unlockAudio();
-}, { once: true });
-
-setupInput();
-runSelfTest(canvas);
-
-window.addEventListener('keydown', e => {
-  events.handleBossInput(e.key);
-});
+document.getElementById('settingsToggle').addEventListener('click', unlockAudio);
 
 const handleInput = dt => {
   const snap = getInputSnapshot();
-  pollGamepad();
+  game.lastInput = snap;
 
   if (consumeAction('jump') && tryJump(player)) {
-    playSfx('jump');
+    playEffect('jump');
+    if (settings.vibration) haptics(35);
   }
-  if (consumeAction('nitro') && applyNitro(player)) {
-    playSfx('boost');
-    navigator.vibrate?.(80);
+  if (consumeAction('nitro') && useNitro(player)) {
+    playEffect('boost');
+    if (settings.vibration) haptics([50, 30, 50]);
   }
-  if (consumeAction('winch') && applyWinch(player)) {
-    playSfx('winch');
-    navigator.vibrate?.([60, 40, 60]);
+  if (consumeAction('winch') && useWinch(player)) {
+    playEffect('winch');
+    if (settings.vibration) haptics([60, 40, 60]);
   }
 
   const choice = consumeAction('choice');
@@ -127,45 +141,49 @@ const handleInput = dt => {
 };
 
 const onDogHit = dog => {
-  const combo = registerComboHit(scoreboard, 4, 0.5, 4);
+  const combo = registerCombo(scoreboard, 4000, 4);
   const gained = 100 * combo;
   addScore(scoreboard, gained);
-  hitSlowdown(player);
+  applyHitSlow(player);
+  if (!scoreboard.achievements.firstDog) scoreboard.achievements.firstDog = true;
   spawnBlood(particles, dog.x + 12, dog.y - 12, rng);
-  scoreboard.achievements.firstBlood = true;
   ui.showToast(`🐕‍🦺 دعسته! +${Math.round(gained)} • x${combo.toFixed(2)}`);
-  playSfx('hit');
-  navigator.vibrate?.([50, 60, 50]);
+  playEffect('hit');
+  if (settings.vibration) haptics([40, 50, 40]);
+  dog.hit = true;
 };
 
-const onDogMiss = () => {
+const onDogMiss = dog => {
   dropCombo(scoreboard);
   ui.showToast('😬 السرعة قليلة، لا نقاط');
-  playSfx('miss');
+  playEffect('miss');
+  dog.missed = true;
 };
 
 const onChairOutcome = touched => {
   if (touched) {
     addScore(scoreboard, -50);
-    gameState.time += 5;
+    game.time += 5;
     ui.showToast('💺 صدمنا العناد! -50 (+5s)');
-    playSfx('miss', -80);
+    playEffect('miss', { detune: -80 });
   } else {
     addScore(scoreboard, 100);
+    scoreboard.achievements.chairDodge = true;
     ui.showToast('💺 نجونا من الكرسي! +100');
-    playSfx('boost', 60);
+    playEffect('boost', { detune: 60 });
   }
 };
 
 const updateGame = dt => {
-  gameState.time += dt;
+  game.time += dt;
   const input = handleInput(dt);
-  gameState.lastInput = input;
-  const trackers = {
-    spawnTrack: (x, y) => spawnTrack(particles, x, y),
-    spawnSand: (x, y, dir) => spawnSand(particles, x, y, dir),
-  };
-  updatePlayer(player, input, dt, WORLD_REGIONS, trackers);
+  updatePlayer(player, input, dt);
+
+  const audioState = getAudioSettings();
+  if (audioState.enabled !== settings.sfx) setAudioEnabled(settings.sfx);
+  if (audioState.volume !== settings.volume) setMasterVolume(settings.volume);
+
+  if (player.onGround) spawnTrack(particles, player.x, player.y - 6);
 
   updateDogs(entities, player, dt, { onDogHit, onDogMiss });
   updateChair(entities, player, { onChairOutcome });
@@ -173,67 +191,88 @@ const updateGame = dt => {
   updateParticles(particles, dt);
   tickCombo(scoreboard, dt);
   events.update(dt);
-  events.tryStartEvents(player.x, gameState.time);
+  events.tryTriggers(player.x, game.time);
 
-  tickEngine(player.kmh);
-  cameraShakeTick(player.kmh, player.boostSec > 0, dt);
-  if (player.kmh > 120) spawnSpeedLines(player.kmh);
+  const kmh = kmhFromVelocity(player.vx);
+  tickEngine(kmh);
+  spawnSpeedLines(kmh, game.viewport.width, game.viewport.height);
   updateSpeedLines(dt);
+  game.cam.shake = Math.max(game.cam.shake * 0.9, kmh > 110 ? (kmh - 110) * 0.02 : 0);
 
-  if (player.x >= WORLD_REGIONS.FINISH_X && !gameState.finished) {
-    gameState.finished = true;
-    gameState.running = false;
+  if (player.x >= WORLD.FINISH_X && !game.finished) {
+    game.finished = true;
+    game.running = false;
     events.finish();
     suspendEngine();
-    const isPB = evaluatePB(scoreboard, gameState.time);
+    const isPB = updatePersonalBest(scoreboard, game.time);
     ui.showEndCard({
       score: scoreboard.score,
-      time: gameState.time,
-      maxCombo: scoreboard.maxCombo,
+      time: game.time,
+      maxCombo: scoreboard.comboMax,
       pb: scoreboard.pb,
       newRecord: isPB,
     });
   }
 
-  const hudData = {
-    speed: player.kmh,
+  const hud = {
+    speed: kmh,
     score: scoreboard.score,
-    combo: 1 + scoreboard.comboLevel * 0.5,
-    comboTime: scoreboard.comboTimer,
+    combo: 1 + scoreboard.comboCount * 0.5,
+    comboTime: scoreboard.comboTimer / 1000,
     nitro: player.nitro,
     winch: player.winch,
-    time: Math.max(0, 70 - gameState.time),
-    progress: Math.min(1, player.x / worldLength()),
+    time: Math.max(0, 70 - game.time),
+    progress: Math.min(1, player.x / WORLD.LENGTH),
     phase: getPhaseEmoji(player.x),
   };
-  ui.updateHUD(hudData);
+  ui.updateHUD(hud);
 };
 
-const renderGame = dt => {
-  renderer.renderScene({
-    viewport: gameState.viewport,
+const render = dt => {
+  renderScene(ctx, {
+    viewport: game.viewport,
     player,
     particles,
     entities,
     dt,
-    regions: WORLD_REGIONS,
-    settings: ui.settings,
-    worldEnd: worldLength(),
-    input: gameState.lastInput,
+    input: game.lastInput,
+    settings,
+    camera: game.cam,
   });
+  if (game.debug) {
+    updateDebugOverlay(debugOverlay, {
+      fps: game.fps,
+      speed: kmhFromVelocity(player.vx),
+      score: scoreboard.score,
+      combo: 1 + scoreboard.comboCount * 0.5,
+      phase: getPhaseEmoji(player.x),
+      camX: game.cam.x,
+      bossActive: entities.boss.active,
+    });
+  }
 };
 
 const loop = now => {
-  const dtMs = dtClamp(now - lastTime);
-  lastTime = now;
+  const dtMs = dtClamp(now - game.lastTime);
+  game.lastTime = now;
   const dt = dtMs / 1000;
-  if (gameState.running) {
-    updateGame(dt);
+  game.frameCount += 1;
+  game.fpsTimer += dt;
+  if (game.fpsTimer >= 0.5) {
+    game.fps = game.frameCount / game.fpsTimer;
+    game.frameCount = 0;
+    game.fpsTimer = 0;
   }
-  renderGame(dt);
+  if (game.running) updateGame(dt);
+  render(dt);
   ui.update(dt);
   resetTransient();
   requestAnimationFrame(loop);
 };
+
+if (!selfTestFitAndGround(canvas, game.cam)) {
+  console.warn('Terrain self-test failed, applying fallback baseline.');
+  player.y = canvas.height * 0.6;
+}
 
 requestAnimationFrame(loop);
