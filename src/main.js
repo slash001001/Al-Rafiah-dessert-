@@ -8,7 +8,7 @@ import { createParticleSystem, spawnTrack, spawnBlood, spawnSand, updateParticle
 import { createScoreboard, addScore, registerComboHit, dropCombo, tickCombo, loadProgress, evaluatePB } from './score.js';
 import { createEventManager } from './events.js';
 import { initUI } from './ui.js';
-import { createRenderer } from './render.js';
+import { createRenderer, cameraShakeTick, spawnSpeedLines, updateSpeedLines } from './render.js';
 import { runSelfTest } from './selftest.js';
 
 const canvas = document.getElementById('scene');
@@ -47,6 +47,12 @@ const gameState = {
   time: 0,
   finished: false,
   viewport: fitCanvas(canvas, ctx),
+  lastInput: {
+    left: false,
+    right: false,
+    rawLeft: false,
+    rawRight: false,
+  },
 };
 
 let lastTime = timestamp();
@@ -154,6 +160,7 @@ const onChairOutcome = touched => {
 const updateGame = dt => {
   gameState.time += dt;
   const input = handleInput(dt);
+  gameState.lastInput = input;
   const trackers = {
     spawnTrack: (x, y) => spawnTrack(particles, x, y),
     spawnSand: (x, y, dir) => spawnSand(particles, x, y, dir),
@@ -169,6 +176,9 @@ const updateGame = dt => {
   events.tryStartEvents(player.x, gameState.time);
 
   tickEngine(player.kmh);
+  cameraShakeTick(player.kmh, player.boostSec > 0, dt);
+  if (player.kmh > 120) spawnSpeedLines(player.kmh);
+  updateSpeedLines(dt);
 
   if (player.x >= WORLD_REGIONS.FINISH_X && !gameState.finished) {
     gameState.finished = true;
@@ -209,6 +219,7 @@ const renderGame = dt => {
     regions: WORLD_REGIONS,
     settings: ui.settings,
     worldEnd: worldLength(),
+    input: gameState.lastInput,
   });
 };
 
