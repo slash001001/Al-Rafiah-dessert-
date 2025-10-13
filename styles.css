@@ -1,16 +1,17 @@
 :root {
   color-scheme: dark;
-  --bg:#061428;
-  --bg-contrast:#0d1c36;
-  --text:#f1f6ff;
+  /* لوحة نيون ليلية محسّنة */
+  --bg:#041022;
+  --bg-contrast:#0a1730;
+  --text:#f2f6ff;
   --muted:#8fa1d3;
-  --accent:#00e5ff;
-  --accent-strong:#ffd166;
+  --neon:#00e5ff;
+  --accent:#ffd166;
   --danger:#ff6b6b;
-  --panel-bg:rgba(10,16,28,0.92);
+  --panel-bg:rgba(10,16,32,0.92);
   --toast-bg:rgba(0,0,0,0.78);
-  --banner-bg:rgba(14,24,38,0.92);
-  --button-bg:rgba(16,24,36,0.86);
+  --banner-bg:rgba(12,20,36,0.92);
+  --button-bg:rgba(14,22,36,0.88);
   --button-scale:1;
   font-family:"Helvetica Neue", Arial, sans-serif;
 }
@@ -24,7 +25,7 @@
 body {
   margin:0;
   min-height:100vh;
-  background:radial-gradient(circle at 50% 20%, #102047 0%, #061428 55%, #03060f 100%);
+  background:radial-gradient(circle at 50% 18%, #0a1730 0%, #0f2040 55%, #041022 100%);
   color:var(--text);
   display:flex;
   align-items:stretch;
@@ -32,16 +33,16 @@ body {
 }
 
 body.high-contrast {
-  --bg:#05070f;
-  --bg-contrast:#0b1428;
+  --bg:#050a14;
+  --bg-contrast:#0d1b33;
   --text:#ffffff;
-  --muted:#d0e2ff;
-  --accent:#ffc857;
-  --accent-strong:#ff6b6b;
-  --panel-bg:rgba(12,18,32,0.94);
-  --toast-bg:rgba(0,0,0,0.82);
-  --banner-bg:rgba(8,12,20,0.92);
-  --button-bg:rgba(24,32,48,0.92);
+  --muted:#d5e4ff;
+  --neon:#61eaff;
+  --accent:#ffcf66;
+  --panel-bg:rgba(8,12,22,0.95);
+  --toast-bg:rgba(0,0,0,0.85);
+  --banner-bg:rgba(6,10,18,0.94);
+  --button-bg:rgba(20,28,44,0.94);
 }
 
 #app {
@@ -91,9 +92,7 @@ canvas {
   white-space:nowrap;
 }
 
-#topBar strong {
-  color:var(--accent-strong);
-}
+#topBar strong { color:var(--accent); }
 
 #settingsToggle,
 #hudToggle {
@@ -122,7 +121,7 @@ canvas {
   position:absolute;
   inset:0;
   width:0%;
-  background:linear-gradient(90deg, var(--accent), var(--accent-strong));
+  background:linear-gradient(90deg, var(--neon), var(--accent));
   transition:width 0.12s ease-out;
 }
 
@@ -155,8 +154,8 @@ canvas {
   left:50%;
   transform:translateX(-50%);
   width:min(480px,80vw);
-  background:rgba(15,22,36,0.94);
-  border:2px solid rgba(0,229,255,0.3);
+  background:rgba(12,20,34,0.94);
+  border:2px solid rgba(0,229,255,0.28);
   border-radius:18px;
   padding:1.2rem;
   display:none;
@@ -178,7 +177,7 @@ canvas {
   position:absolute;
   inset:0;
   width:0%;
-  background:linear-gradient(90deg,#00e5ff,#3bffa5);
+  background:linear-gradient(90deg,var(--neon),#3bffa5);
 }
 
 #qteKeys { display:flex; gap:0.9rem; }

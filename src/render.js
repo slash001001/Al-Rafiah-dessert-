@@ -3,17 +3,18 @@ import { kmhFromVelocity } from './utils.js';
 
 const PAL = {
   skyTop: '#041022',
-  skyBot: '#0b162b',
-  duneFar: '#0e1722',
-  duneMid: '#132033',
-  duneMain: '#a97a4b',
-  duneShade: '#8b6a43',
+  skyMid: '#0a1730',
+  skyBot: '#0f2040',
+  duneFar: '#0d1522',
+  duneMid: '#17243a',
+  duneMain: '#b78a5b',
+  duneShade: '#8e6d47',
   neon: '#00e5ff',
   accent: '#ffd166',
   brake: '#ff3b3b',
   head: '#fff7b0',
   gaugeBg: '#0d1320',
-  gaugeOk: '#3ab26c',
+  gaugeOk: '#2ce07c',
   gaugeHi: '#ff6b6b',
 };
 
@@ -55,6 +56,7 @@ export const updateSpeedLines = dt => {
 const drawSky = (ctx, W, H, cam, stars) => {
   const grad = ctx.createLinearGradient(0, 0, 0, H);
   grad.addColorStop(0, PAL.skyTop);
+  grad.addColorStop(0.55, PAL.skyMid);
   grad.addColorStop(1, PAL.skyBot);
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, W, H);
@@ -170,19 +172,24 @@ const drawDogs = (ctx, dogs, cam, settings) => {
       ctx.rotate(0.35);
       ctx.globalAlpha = dog.fade;
     }
-    ctx.fillStyle = '#2b2722';
-    ctx.fillRect(-24, -12, 48, 24);
-    ctx.fillStyle = '#443c33';
-    ctx.fillRect(18, -30, 20, 16);
-    ctx.fillStyle = '#d9c38f';
-    ctx.fillRect(-22, 10, 8, 16);
-    ctx.fillRect(6, 10, 8, 16);
-    ctx.fillRect(-2, 10, 8, 16);
-    ctx.fillRect(20, 10, 8, 16);
+    // جسم محايد + تفاصيل بسيطة
+    ctx.fillStyle = '#5a4b3a';
+    ctx.fillRect(-22, -12, 44, 24);
+    // رأس + أذن + ذيل
+    ctx.fillStyle = '#6b5a45';
+    ctx.fillRect(16, -18, 18, 14);
+    ctx.fillRect(-30, -8, 8, 8);
+    // أرجل
+    ctx.fillStyle = '#7b6a55';
+    ctx.fillRect(-20, 10, 7, 14);
+    ctx.fillRect(-2, 10, 7, 14);
+    ctx.fillRect(10, 10, 7, 14);
+    ctx.fillRect(22, 10, 7, 14);
+    // عين وأنف
     ctx.fillStyle = '#fff';
-    ctx.fillRect(28, -26, 6, 6);
+    ctx.fillRect(28, -24, 5, 5);
     ctx.fillStyle = '#000';
-    ctx.fillRect(30, -24, 3, 3);
+    ctx.fillRect(30, -22, 2, 2);
     ctx.restore();
     if (dog.hit && settings.blood) {
       ctx.fillStyle = 'rgba(255,0,0,0.25)';
@@ -381,10 +388,11 @@ const drawSpeedometer = (ctx, player, W, H) => {
 
 const drawScreenFX = (ctx, W, H, settings, camShake) => {
   ctx.save();
+  ctx.lineCap = 'round';
   FX.speedLines.forEach(line => {
     ctx.globalAlpha = line.a;
-    ctx.strokeStyle = '#cfe6ff';
-    ctx.lineWidth = line.w;
+    ctx.strokeStyle = 'rgba(220,240,255,0.85)';
+    ctx.lineWidth = Math.max(1, line.w - 0.5);
     ctx.beginPath();
     ctx.moveTo(line.x, line.y - line.len * 0.5);
     ctx.lineTo(line.x, line.y + line.len * 0.5);
