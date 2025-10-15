@@ -1,0 +1,43 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  font-family: 'Tajawal', sans-serif;
+  background: linear-gradient(180deg, #f8e9d2 0%, #f4c27a 55%, #d85f1a 100%);
+  color: #5e3116;
+}
+
+#game-container {
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+canvas {
+  display: block;
+  margin: 0 auto;
+  image-rendering: optimizeSpeed;
+  touch-action: none;
+}
+
+@media (orientation: portrait) {
+  body::after {
+    content: 'دوّر جهازك أفقياً لتجربة أفضل';
+    position: absolute;
+    top: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(34, 119, 169, 0.8);
+    color: #fff;
+    padding: 8px 16px;
+    border-radius: 18px;
+    font-size: 14px;
+  }
+}

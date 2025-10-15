@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 220">
+  <defs>
+    <radialGradient id="dammam-sky" cx="0.5" cy="0.4" r="0.8">
+      <stop offset="0%" stop-color="#fce9ad" />
+      <stop offset="100%" stop-color="#f19a3f" />
+    </radialGradient>
+  </defs>
+  <circle cx="110" cy="110" r="100" fill="url(#dammam-sky)" stroke="#ffffff" stroke-width="12" />
+  <path d="M38 148 C70 118 108 106 150 116 C172 98 190 82 204 76 C200 122 188 162 164 176 C140 190 108 180 82 168 C68 162 54 158 38 148 Z" fill="#1760a3" opacity="0.9" />
+  <path d="M60 156 L90 122 L112 134 L138 110 L178 144 L148 170 Z" fill="#ffffff" opacity="0.3" />
+  <circle cx="156" cy="92" r="14" fill="#ffffff" />
+  <path d="M82 174 C100 160 122 156 148 164" stroke="#083a63" stroke-width="8" stroke-linecap="round" opacity="0.4" />
+</svg>

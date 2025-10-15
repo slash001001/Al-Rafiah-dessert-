@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 200">
+  <defs>
+    <linearGradient id="paint-body" x1="0" y1="0" x2="1" y2="0.9">
+      <stop offset="0%" stop-color="#fdd05d" />
+      <stop offset="40%" stop-color="#f7a646" />
+      <stop offset="100%" stop-color="#d85f1a" />
+    </linearGradient>
+    <linearGradient id="paint-stripe" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.8" />
+      <stop offset="100%" stop-color="#ffe9b0" stop-opacity="0.1" />
+    </linearGradient>
+    <linearGradient id="paint-glass" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#94d3f6" />
+      <stop offset="60%" stop-color="#4ea1d8" />
+      <stop offset="100%" stop-color="#17609e" />
+    </linearGradient>
+    <radialGradient id="paint-light" cx="0.45" cy="0.5" r="0.55">
+      <stop offset="0%" stop-color="#fff6d6" />
+      <stop offset="100%" stop-color="#f8b71c" />
+    </radialGradient>
+    <linearGradient id="paint-shadow" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#452611" stop-opacity="0.3" />
+      <stop offset="100%" stop-color="#452611" stop-opacity="0" />
+    </linearGradient>
+    <linearGradient id="paint-rim" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#9298a1" />
+      <stop offset="100%" stop-color="#5a606a" />
+    </linearGradient>
+  </defs>
+  <g transform="translate(12 32)">
+    <ellipse cx="160" cy="132" rx="150" ry="36" fill="#000" opacity="0.1" />
+    <path d="M12 122 C14 80 46 34 86 28 L150 18 C158 16 170 8 188 8 H244 C272 8 302 34 328 52 L336 94 C340 118 324 136 306 138 L48 146 C24 144 10 140 12 122 Z" fill="url(#paint-body)" stroke="#5e3116" stroke-width="10" stroke-linejoin="round" />
+    <path d="M96 28 L150 20 C174 16 200 0 232 0 H268 C292 0 318 20 330 46 L336 64 L244 64 Z" fill="#5e3116" opacity="0.25" />
+    <path d="M116 64 H244 L260 100 H92 Z" fill="url(#paint-glass)" stroke="#073762" stroke-width="8" stroke-linejoin="round" />
+    <path d="M112 110 L314 96 L320 118 C322 128 314 132 308 132 L120 140 C106 138 100 126 112 110 Z" fill="#5e3116" opacity="0.18" />
+    <path d="M48 118 H176" stroke="#ffe9b0" stroke-width="8" stroke-linecap="round" opacity="0.8" />
+    <path d="M64 68 L300 52" stroke="#ffffff" stroke-width="4" opacity="0.45" />
+    <path d="M90 92 L298 78" stroke="#ffffff" stroke-width="4" opacity="0.2" />
+    <path d="M70 116 C110 90 222 78 314 78 L322 100 C240 104 150 118 118 138 Z" fill="url(#paint-stripe)" opacity="0.85" />
+    <circle cx="82" cy="146" r="48" fill="#1c1c21" />
+    <circle cx="82" cy="146" r="32" fill="url(#paint-rim)" />
+    <circle cx="82" cy="146" r="12" fill="#cfd4dc" />
+    <path d="M82 106 C96 120 86 134 70 146" stroke="#000" stroke-opacity="0.4" stroke-width="6" stroke-linecap="round" />
+    <circle cx="280" cy="140" r="52" fill="#1c1c21" />
+    <circle cx="280" cy="140" r="36" fill="url(#paint-rim)" />
+    <circle cx="280" cy="140" r="14" fill="#d8dee6" />
+    <path d="M276 104 C292 118 288 132 270 146" stroke="#000" stroke-opacity="0.4" stroke-width="6" stroke-linecap="round" />
+    <circle cx="320" cy="118" r="12" fill="url(#paint-light)" stroke="#f3e2b2" stroke-width="4" />
+    <path d="M12 122 C14 136 38 140 58 140 L50 162 L20 162 Z" fill="#5e3116" stroke="#3b1f0c" stroke-width="6" />
+    <path d="M212 20 H250 C260 20 270 26 276 36 L292 68 H212 Z" fill="#073762" opacity="0.4" />
+    <path d="M124 42 L144 20" stroke="#ffecc7" stroke-width="6" stroke-linecap="round" />
+    <path d="M180 42 L200 20" stroke="#ffecc7" stroke-width="6" stroke-linecap="round" />
+    <circle cx="300" cy="110" r="6" fill="#ffe09a" opacity="0.8" />
+    <path d="M18 158 H340" stroke="#000" stroke-opacity="0.08" stroke-width="12" />
+    <path d="M144 104 H248" stroke="#5e3116" stroke-linecap="round" stroke-width="14" opacity="0.3" />
+    <path d="M128 148 L144 154 L132 164 L112 162 Z" fill="#5e3116" opacity="0.4" />
+    <path d="M196 148 L212 154 L202 166 L180 162 Z" fill="#5e3116" opacity="0.4" />
+    <path d="M268 26 C280 18 300 22 312 34" stroke="#ffecc7" stroke-width="4" stroke-linecap="round" opacity="0.6" />
+  </g>
+</svg>
