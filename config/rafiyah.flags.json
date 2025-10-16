@@ -1,0 +1,7 @@
+{
+  "enableSandTuning": true,
+  "enableCameraLerp": true,
+  "enableCheckpointLite": true,
+  "enableAudioTorqueSync": true,
+  "enablePerfOverlay": true
+}

@@ -8,6 +8,7 @@ import { SandDunesScene } from '../levels/sand_dunes/sand_dunes_scene.js';
 const MODULE_BASE_URL = new URL('.', import.meta.url);
 const CONFIG_URL = new URL('./config.json', MODULE_BASE_URL).href;
 const ASSET_BASE_URL = new URL('./assets/', MODULE_BASE_URL).href;
+const FLAGS_URL = new URL('../config/rafiyah.flags.json', MODULE_BASE_URL).href;
 
 const COLORS = {
   // Lighter, sunnier palette
@@ -97,11 +98,21 @@ class BootScene extends Phaser.Scene {
       this.game.events.off('language-changed', onLanguage);
     });
     this.load.json('level-data', CONFIG_URL);
+    this.load.json('rafiyah-flags', FLAGS_URL);
   }
 
   create() {
     const config = this.cache.json.get('level-data');
     this.registry.set('level-config', config);
+    const flags = this.cache.json.get('rafiyah-flags') ?? {};
+    this.registry.set('rafiyah-flags', {
+      enableSandTuning: true,
+      enableCameraLerp: true,
+      enableCheckpointLite: true,
+      enableAudioTorqueSync: true,
+      enablePerfOverlay: true,
+      ...flags,
+    });
     const savedLang = window.localStorage.getItem('taees-lang') || 'ar';
     this.registry.set('lang', savedLang === 'ar' ? 'ar' : 'en');
     document.documentElement.lang = this.registry.get('lang');
@@ -165,6 +176,7 @@ class PreloadScene extends Phaser.Scene {
 
   create() {
     this.createGeneratedTextures();
+    this.verifyAssets();
     this.scene.start('MenuScene');
   }
 
@@ -205,6 +217,22 @@ class PreloadScene extends Phaser.Scene {
       dCtx.fill();
     }
     duneCanvas.refresh();
+  }
+
+  verifyAssets() {
+    const textureKeys = ['car-body', 'wheel', 'hilux', 'palm', 'cactus', 'camel', 'sign', 'dune'];
+    textureKeys.forEach(key => {
+      if (!this.textures.exists(key)) {
+        console.warn(`[assets] Missing texture: ${key}`);
+      }
+    });
+
+    const audioKeys = ['bgm', 'sfx-engine', 'sfx-skid', 'sfx-coin', 'sfx-win'];
+    audioKeys.forEach(key => {
+      if (!this.cache.audio.exists(key)) {
+        console.warn(`[assets] Missing audio: ${key}`);
+      }
+    });
   }
 }
 

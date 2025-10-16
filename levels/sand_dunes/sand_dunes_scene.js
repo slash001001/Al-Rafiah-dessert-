@@ -1,4 +1,6 @@
 import { PX_PER_METER, DEFAULT_SAND_PHYSICS, tractionFromSlope } from './physics_utils.js';
+import { clamp, smoothValue, cameraOffsetStep, playbackRateFromAcceleration, volumeFromAcceleration, applyDeadZone } from './stabilization_utils.js';
+import { storeCheckpoint, loadCheckpoint, clearCheckpoint, completedCheckpointIds } from './checkpoint_store.js';
 
 const PhaserLib = window.Phaser;
 
@@ -17,6 +19,7 @@ const SAND_PHYSICS = {
 const ENGINE_FORCE = 0.00046;
 const BRAKE_FORCE = 0.00038;
 const DRAG_COEFFICIENT = 0.00022;
+const GAMEPAD_DEADZONE = 0.15;
 
 export class SandDunesScene extends PhaserLib.Scene {
   constructor() {
@@ -38,6 +41,20 @@ export class SandDunesScene extends PhaserLib.Scene {
     };
     this.audio = null;
     this.lastVelocity = { x: 0, y: 0 };
+    this.flags = {
+      enableSandTuning: true,
+      enableCameraLerp: true,
+      enableCheckpointLite: true,
+      enableAudioTorqueSync: true,
+      enablePerfOverlay: true,
+    };
+    this.perfSamples = [];
+    this.activeCheckpoint = null;
+    this.inputAnalog = {
+      accelerate: 0,
+      reverse: 0,
+      brake: 0,
+    };
   }
 
   preload() {
@@ -50,13 +67,20 @@ export class SandDunesScene extends PhaserLib.Scene {
     this.vehicleSpec = this.cache.json.get('sand-dunes-vehicle') ?? {};
     this.scale.lockOrientation?.('landscape');
 
+    const registryFlags = this.registry?.get?.('rafiyah-flags');
+    if (registryFlags) {
+      this.flags = { ...this.flags, ...registryFlags };
+    }
+
     this.setupWorld();
     this.buildBackground();
     this.generateTerrainProfile();
     this.createTerrain();
     this.createCheckpoints();
     this.createVehicle();
+    this.restoreCheckpointProgress();
     this.createHUD();
+    this.initPerfOverlay();
     this.initAudio();
     this.registerInput();
     this.registerCollisions();
@@ -219,6 +243,8 @@ export class SandDunesScene extends PhaserLib.Scene {
       { id: 'cp-3', labelAr: 'القمة الأخيرة', labelEn: 'Final crest' },
     ];
 
+    this.checkpointOrder = [];
+
     anchors.slice(0, 3).forEach((anchorX, idx) => {
       const groundY = this.sampleGround(anchorX);
       const sensor = this.matter.add.rectangle(anchorX, groundY - height / 2, width, height, {
@@ -230,9 +256,44 @@ export class SandDunesScene extends PhaserLib.Scene {
         id: labels[idx]?.id ?? `cp-${idx + 1}`,
         labelAr: labels[idx]?.labelAr ?? `نقطة ${idx + 1}`,
         labelEn: labels[idx]?.labelEn ?? `Checkpoint ${idx + 1}`,
+        anchorX,
+        index: idx,
       };
       this.checkpoints.push(sensor);
+      this.checkpointOrder.push(sensor.checkpointData.id);
     });
+  }
+
+  restoreCheckpointProgress() {
+    if (!this.isFlagEnabled('enableCheckpointLite')) return;
+    if (typeof window === 'undefined' || !window.localStorage) return;
+
+    const data = loadCheckpoint(window.localStorage);
+    if (!data) return;
+
+    const fallbackIndex = typeof data.index === 'number' ? data.index : 0;
+    const checkpoint = this.checkpoints.find(cp => cp.checkpointData.id === data.id) ?? this.checkpoints[fallbackIndex];
+    if (!checkpoint) return;
+
+    const anchorX = typeof data.anchorX === 'number' ? data.anchorX : checkpoint.checkpointData.anchorX;
+    if (typeof anchorX !== 'number') return;
+
+    this.moveVehicleTo(anchorX);
+    this.activeCheckpoint = checkpoint.checkpointData.id;
+    this.checkpointHits.clear();
+    completedCheckpointIds(this.checkpoints, checkpoint.checkpointData.index).forEach(id => this.checkpointHits.add(id));
+
+    const lang = this.registry.get('lang') ?? 'ar';
+    const message = lang === 'ar' ? `${checkpoint.checkpointData.labelAr} ✔` : `${checkpoint.checkpointData.labelEn} ✔`;
+    this.toastText.setText(message);
+    this.toastText.setAlpha(1);
+  }
+
+  persistCheckpoint(data) {
+    if (!this.isFlagEnabled('enableCheckpointLite')) return;
+    if (typeof window === 'undefined' || !window.localStorage) return;
+    storeCheckpoint(window.localStorage, data);
+    this.activeCheckpoint = data.id;
   }
 
   createVehicle() {
@@ -240,6 +301,7 @@ export class SandDunesScene extends PhaserLib.Scene {
     const wheelRadius = (spec.wheelRadiusMeters ?? 0.42) * PX_PER_METER;
     const wheelBaseMeters = spec.wheelBaseMeters ?? 3.1;
     this.wheelOffset = (wheelBaseMeters * PX_PER_METER) / 2;
+    this.wheelRadius = wheelRadius;
     const startX = 220;
     const groundY = this.sampleGround(startX);
     const startY = groundY - wheelRadius * 2 - 30;
@@ -351,6 +413,30 @@ export class SandDunesScene extends PhaserLib.Scene {
     });
   }
 
+  initPerfOverlay() {
+    if (!this.isFlagEnabled('enablePerfOverlay')) {
+      this.perfOverlay = null;
+      return;
+    }
+
+    this.perfOverlayVisible = false;
+    this.perfOverlay = this.add.text(24, 220, '', {
+      fontFamily: 'Tajawal, sans-serif',
+      fontSize: 16,
+      color: '#132c44',
+      backgroundColor: 'rgba(255,255,255,0.78)',
+      padding: { x: 10, y: 8 },
+      lineSpacing: 4,
+    })
+      .setScrollFactor(0)
+      .setVisible(false);
+
+    this.input.keyboard.on('keydown-F1', () => {
+      this.perfOverlayVisible = !this.perfOverlayVisible;
+      this.perfOverlay?.setVisible(this.perfOverlayVisible);
+    });
+  }
+
   registerInput() {
     this.input.keyboard.on('keydown-ESC', () => this.scene.start('MenuScene'));
     this.input.keyboard.on('keydown-BACKSPACE', () => this.resetVehicle());
@@ -402,9 +488,17 @@ export class SandDunesScene extends PhaserLib.Scene {
     const message = lang === 'ar' ? data.labelAr : data.labelEn;
     this.toastText.setText(message);
     this.toastText.setAlpha(1);
+
+    if (this.isFlagEnabled('enableCheckpointLite')) {
+      this.persistCheckpoint(data);
+    }
   }
 
   initAudio() {
+    if (!this.isFlagEnabled('enableAudioTorqueSync')) {
+      this.audio = null;
+      return;
+    }
     if (!this.sound || !this.sound.context) return;
     const ctx = this.sound.context;
     if (!ctx) return;
@@ -419,7 +513,11 @@ export class SandDunesScene extends PhaserLib.Scene {
 
     const sandGain = ctx.createGain();
     sandGain.gain.value = 0;
-    sandGain.connect(master);
+
+    const engineGain = ctx.createGain();
+    engineGain.gain.value = 0.4;
+    engineGain.connect(master);
+    sandGain.connect(engineGain);
 
     const suspensionGain = ctx.createGain();
     suspensionGain.gain.value = 0;
@@ -445,6 +543,7 @@ export class SandDunesScene extends PhaserLib.Scene {
       master,
       windGain,
       sandGain,
+      engineGain,
       suspensionGain,
       windOsc,
       sandSource,
@@ -486,10 +585,9 @@ export class SandDunesScene extends PhaserLib.Scene {
     return buffer;
   }
 
-  resetVehicle() {
-    const startX = 220;
+  moveVehicleTo(startX) {
+    const wheelRadius = this.wheelRadius ?? (this.vehicleSpec.wheelRadiusMeters ?? 0.42) * PX_PER_METER;
     const groundY = this.sampleGround(startX);
-    const wheelRadius = (this.vehicleSpec.wheelRadiusMeters ?? 0.42) * PX_PER_METER;
     Body.setPosition(this.chassis, { x: startX, y: groundY - wheelRadius * 2 - 30 });
     Body.setVelocity(this.chassis, { x: 0, y: 0 });
     Body.setAngle(this.chassis, 0);
@@ -504,6 +602,10 @@ export class SandDunesScene extends PhaserLib.Scene {
     Body.setVelocity(this.frontWheel, { x: 0, y: 0 });
     Body.setAngle(this.frontWheel, 0);
     Body.setAngularVelocity(this.frontWheel, 0);
+  }
+
+  resetVehicle(startX = 220) {
+    this.moveVehicleTo(startX);
 
     this.checkpointHits.clear();
     this.toastText.setAlpha(0);
@@ -517,6 +619,14 @@ export class SandDunesScene extends PhaserLib.Scene {
       this.audio.windGain.gain.setTargetAtTime(0, now, 0.15);
       this.audio.sandGain.gain.setTargetAtTime(0, now, 0.15);
     }
+
+    if (typeof window !== 'undefined' && window.localStorage) {
+      clearCheckpoint(window.localStorage);
+    }
+  }
+
+  isFlagEnabled(key) {
+    return Boolean(this.flags?.[key]);
   }
 
   update(time, delta) {
@@ -526,13 +636,17 @@ export class SandDunesScene extends PhaserLib.Scene {
     const velocity = this.chassis.velocity;
     const speed = Math.hypot(velocity.x, velocity.y);
     const slopeAngle = this.sampleSlope(this.chassis.position.x);
+    const slopeDeg = PhaserLib.Math.RadToDeg(slopeAngle);
+    const fps = dt > 0 ? 1 / dt : 0;
 
     this.elapsed += dt;
     this.updateVehicle(dt, slopeAngle, speed);
     this.updateCamera(dt, speed, slopeAngle);
     this.updateSprites(slopeAngle);
     this.updateHUD(speed, slopeAngle);
-    this.updateAudioState(speed, slopeAngle);
+    this.updatePerfOverlay(fps, speed, slopeDeg, this.currentTraction);
+    const acceleration = dt > 0 ? Math.abs(velocity.x - this.lastVelocity.x) / dt : 0;
+    this.updateAudioState(speed, slopeAngle, acceleration);
 
     if (this.chassis.position.x > this.trackEndX) {
       this.finishStage();
@@ -543,32 +657,71 @@ export class SandDunesScene extends PhaserLib.Scene {
   }
 
   updateVehicle(dt, slopeAngle, speed) {
-    const slopeDeg = Math.abs(PhaserLib.Math.RadToDeg(slopeAngle));
-    this.tractionTarget = tractionFromSlope({ slopeDeg, speed, physics: SAND_PHYSICS });
-    this.currentTraction = PhaserLib.Math.Linear(this.currentTraction, this.tractionTarget, dt * 3.2);
+    const sandEnabled = this.isFlagEnabled('enableSandTuning');
+    if (sandEnabled) {
+      const slopeDeg = Math.abs(PhaserLib.Math.RadToDeg(slopeAngle));
+      this.tractionTarget = tractionFromSlope({ slopeDeg, speed, physics: SAND_PHYSICS });
+      this.currentTraction = PhaserLib.Math.Linear(this.currentTraction, this.tractionTarget, dt * 3.2);
+    } else {
+      this.tractionTarget = 1;
+      this.currentTraction = 1;
+    }
 
     const input = this.readInput();
-    this.applyEngineForces(input, slopeAngle, speed);
-    this.applySandDrag(slopeAngle, speed);
-    this.preventWheelSink(this.rearWheel);
-    this.preventWheelSink(this.frontWheel);
-    this.dampenBodyRoll(dt, input);
+    this.applyEngineForces(input, slopeAngle, speed, sandEnabled);
+    this.applySandDrag(slopeAngle, speed, sandEnabled);
+    if (sandEnabled) {
+      this.preventWheelSink(this.rearWheel);
+      this.preventWheelSink(this.frontWheel);
+    }
+    this.dampenBodyRoll(dt, input, sandEnabled);
   }
 
   readInput() {
-    const accelerate = this.cursors.right.isDown || this.keys.D.isDown;
-    const reverse = this.cursors.left.isDown || this.keys.A.isDown;
-    const brake = this.cursors.space?.isDown || this.keys.SPACE.isDown || this.keys.SHIFT.isDown;
-    return { accelerate, reverse, brake };
+    const padManager = this.input.gamepad;
+    const pad = padManager && padManager.total > 0 ? padManager.getPad(0) : null;
+    const axisXRaw = pad?.axes?.length ? pad.axes[0].getValue() : 0;
+    const axisYRaw = pad?.axes?.length > 1 ? pad.axes[1].getValue() : 0;
+    const deadZone = GAMEPAD_DEADZONE;
+    const axisX = applyDeadZone(axisXRaw, deadZone);
+    const axisY = applyDeadZone(axisYRaw, deadZone);
+
+    const accelerateKeyboard = this.cursors.right.isDown || this.keys.D.isDown;
+    const reverseKeyboard = this.cursors.left.isDown || this.keys.A.isDown;
+    const brakeKeyboard = this.cursors.space?.isDown || this.keys.SPACE.isDown || this.keys.SHIFT.isDown;
+
+    const acceleratePad = pad ? axisX > deadZone || pad.buttons?.[7]?.pressed === true : false; // RT
+    const reversePad = pad ? axisX < -deadZone || pad.buttons?.[6]?.pressed === true : false; // LT
+    const brakePad = pad ? (Math.abs(axisY) > deadZone && axisY > 0.5) || pad.buttons?.[0]?.pressed === true : false;
+
+    const raw = {
+      accelerate: accelerateKeyboard || acceleratePad,
+      reverse: reverseKeyboard || reversePad,
+      brake: brakeKeyboard || brakePad,
+    };
+
+    return this.filterInput(raw);
   }
 
-  applyEngineForces({ accelerate, reverse, brake }, slopeAngle, speed) {
+  filterInput(raw) {
+    const smoothing = 0.35;
+    const filtered = {};
+    ['accelerate', 'reverse', 'brake'].forEach(key => {
+      const target = raw[key] ? 1 : 0;
+      const previous = this.inputAnalog[key] ?? 0;
+      this.inputAnalog[key] = smoothValue(previous, target, smoothing);
+      filtered[key] = this.inputAnalog[key] >= 0.55;
+    });
+    return filtered;
+  }
+
+  applyEngineForces({ accelerate, reverse, brake }, slopeAngle, speed, sandEnabled) {
     const rear = this.rearWheel;
     const front = this.frontWheel;
-    const traction = this.currentTraction;
+    const traction = sandEnabled ? this.currentTraction : 1;
     const wheelSpeed = Math.abs(rear.angularVelocity) + Math.abs(front.angularVelocity);
-    const torqueFade = PhaserLib.Math.Clamp(1 - wheelSpeed * 0.08, 0.25, 1);
-    const slopePenalty = PhaserLib.Math.Clamp(1 - Math.abs(Math.sin(slopeAngle)) * 0.55, 0.35, 1);
+    const torqueFade = sandEnabled ? PhaserLib.Math.Clamp(1 - wheelSpeed * 0.08, 0.25, 1) : 1;
+    const slopePenalty = sandEnabled ? PhaserLib.Math.Clamp(1 - Math.abs(Math.sin(slopeAngle)) * 0.55, 0.35, 1) : 1;
     const forceScalar = traction * torqueFade * slopePenalty;
 
     if (accelerate) {
@@ -582,16 +735,17 @@ export class SandDunesScene extends PhaserLib.Scene {
     }
 
     if (brake) {
-      const brakeForce = BRAKE_FORCE + Math.abs(Math.sin(slopeAngle)) * 0.0002 + speed * 0.00002;
+      const extraSlope = sandEnabled ? Math.abs(Math.sin(slopeAngle)) * 0.0002 : 0;
+      const brakeForce = BRAKE_FORCE + extraSlope + speed * 0.00002;
       Body.setAngularVelocity(rear, PhaserLib.Math.Linear(rear.angularVelocity, 0, 0.5));
       Body.setAngularVelocity(front, PhaserLib.Math.Linear(front.angularVelocity, 0, 0.5));
       Body.applyForce(this.chassis, this.chassis.position, { x: -Math.sign(this.chassis.velocity.x) * brakeForce, y: 0 });
     }
   }
 
-  applySandDrag(slopeAngle, speedMagnitude) {
+  applySandDrag(slopeAngle, speedMagnitude, sandEnabled) {
     const speed = Math.abs(speedMagnitude);
-    const slopeFactor = PhaserLib.Math.Clamp(Math.abs(Math.sin(slopeAngle)) * 1.5, 0, 1.8);
+    const slopeFactor = sandEnabled ? PhaserLib.Math.Clamp(Math.abs(Math.sin(slopeAngle)) * 1.5, 0, 1.8) : 0.5;
     const dragForce = DRAG_COEFFICIENT * (1 + slopeFactor) * speed;
     Body.applyForce(this.chassis, this.chassis.position, {
       x: -Math.sign(this.chassis.velocity.x) * dragForce,
@@ -609,11 +763,13 @@ export class SandDunesScene extends PhaserLib.Scene {
     }
   }
 
-  dampenBodyRoll(dt, input) {
-    const rotation = this.chassis.angle;
-    const rollTarget = PhaserLib.Math.Clamp(rotation, -0.45, 0.45);
-    const correction = (rollTarget - rotation) * dt * 0.9;
-    Body.setAngularVelocity(this.chassis, this.chassis.angularVelocity + correction);
+  dampenBodyRoll(dt, input, sandEnabled) {
+    if (sandEnabled) {
+      const rotation = this.chassis.angle;
+      const rollTarget = PhaserLib.Math.Clamp(rotation, -0.45, 0.45);
+      const correction = (rollTarget - rotation) * dt * 0.9;
+      Body.setAngularVelocity(this.chassis, this.chassis.angularVelocity + correction);
+    }
 
     if (!input.accelerate && !input.reverse) {
       Body.setAngularVelocity(this.rearWheel, PhaserLib.Math.Linear(this.rearWheel.angularVelocity, 0, 0.05));
@@ -625,13 +781,19 @@ export class SandDunesScene extends PhaserLib.Scene {
     const cam = this.cameras.main;
     if (!cam) return;
 
+    if (!this.isFlagEnabled('enableCameraLerp')) {
+      cam.setZoom(1.0);
+      cam.setFollowOffset(0, -140);
+      return;
+    }
+
     const speedMps = speed / PX_PER_METER;
     this.cameraRig.targetZoom = PhaserLib.Math.Clamp(1.05 - speedMps * 0.015, 0.82, 1.08);
-    this.cameraRig.zoom = PhaserLib.Math.Linear(this.cameraRig.zoom, this.cameraRig.targetZoom, dt * 2.5);
+    this.cameraRig.zoom = cameraOffsetStep(this.cameraRig.zoom, this.cameraRig.targetZoom, dt, 2.5);
 
     const horizonLift = PhaserLib.Math.Clamp(Math.sin(slopeAngle) * 90, -70, 90);
     this.cameraRig.targetOffsetY = PhaserLib.Math.Clamp(-140 - horizonLift, -220, -80);
-    this.cameraRig.offsetY = PhaserLib.Math.Linear(this.cameraRig.offsetY, this.cameraRig.targetOffsetY, dt * 3);
+    this.cameraRig.offsetY = cameraOffsetStep(this.cameraRig.offsetY, this.cameraRig.targetOffsetY, dt, 3);
 
     cam.setZoom(this.cameraRig.zoom);
     cam.setFollowOffset(0, this.cameraRig.offsetY);
@@ -680,11 +842,13 @@ export class SandDunesScene extends PhaserLib.Scene {
     );
   }
 
-  updateAudioState(speed, slopeAngle) {
+  updateAudioState(speed, slopeAngle, acceleration) {
+    if (!this.isFlagEnabled('enableAudioTorqueSync')) return;
     if (!this.audio || !this.audio.started) return;
     const ctx = this.audio.ctx;
     const now = ctx.currentTime;
     const speedMps = speed / PX_PER_METER;
+    const accelNormalized = clamp(acceleration / 120, 0, 1.5);
 
     const windTarget = PhaserLib.Math.Clamp(speedMps * 0.06, 0, 0.55);
     this.audio.windGain.gain.setTargetAtTime(windTarget, now, 0.12);
@@ -693,9 +857,42 @@ export class SandDunesScene extends PhaserLib.Scene {
     const sandIntensity = PhaserLib.Math.Clamp((1 - this.currentTraction) + Math.abs(Math.sin(slopeAngle)) * 0.45, 0, 1.2);
     const sandTarget = PhaserLib.Math.Clamp(sandIntensity * 0.52, 0, 0.48);
     this.audio.sandGain.gain.setTargetAtTime(sandTarget, now, 0.08);
+
+    if (this.audio.sandSource?.playbackRate) {
+      const playbackRate = playbackRateFromAcceleration({ baseRate: 1, acceleration: accelNormalized, traction: this.currentTraction });
+      this.audio.sandSource.playbackRate.setTargetAtTime(playbackRate, now, 0.12);
+    }
+    if (this.audio.engineGain) {
+      const engineVolume = volumeFromAcceleration({ baseVolume: 0.4, acceleration: accelNormalized });
+      this.audio.engineGain.gain.setTargetAtTime(engineVolume, now, 0.12);
+    }
+  }
+
+  updatePerfOverlay(fps, speed, slopeDeg, traction) {
+    if (!this.perfOverlay) return;
+    if (!this.perfOverlayVisible) {
+      if (this.perfOverlay.text !== '') {
+        this.perfOverlay.setText('');
+      }
+      return;
+    }
+
+    const speedKmh = (speed / PX_PER_METER) * 3.6;
+    this.perfOverlay.setText(
+      `FPS: ${fps.toFixed(1)}\n` +
+        `Speed: ${speedKmh.toFixed(1)} km/h\n` +
+        `Slope: ${slopeDeg.toFixed(1)}°\n` +
+        `Traction: ${(traction * 100).toFixed(0)}%`
+    );
+
+    if (this.perfSamples.length > 3600) {
+      this.perfSamples.shift();
+    }
+    this.perfSamples.push({ fps, speed: speedKmh, slope: slopeDeg, traction });
   }
 
   handleSuspensionImpact(pair) {
+    if (!this.isFlagEnabled('enableAudioTorqueSync')) return;
     if (!this.audio || !this.audio.started) return;
     const { bodyA, bodyB } = pair;
     const involvesWheel = this.isWheelBody(bodyA) || this.isWheelBody(bodyB);
@@ -735,6 +932,9 @@ export class SandDunesScene extends PhaserLib.Scene {
       const now = this.audio.ctx.currentTime;
       this.audio.windGain.gain.setTargetAtTime(0, now, 0.2);
       this.audio.sandGain.gain.setTargetAtTime(0, now, 0.2);
+    }
+    if (typeof window !== 'undefined' && window.localStorage) {
+      clearCheckpoint(window.localStorage);
     }
     this.time.delayedCall(1200, () => this.scene.start('MenuScene'));
   }

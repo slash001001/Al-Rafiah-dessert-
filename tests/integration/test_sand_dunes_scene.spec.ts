@@ -1,6 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import {
+  storeCheckpoint,
+  loadCheckpoint,
+  clearCheckpoint,
+  completedCheckpointIds,
+  CHECKPOINT_STORAGE_KEY,
+} from '../../levels/sand_dunes/checkpoint_store.js';
 
 const terrainSpec = JSON.parse(
   readFileSync(resolve(process.cwd(), 'levels/sand_dunes/terrain_config.json'), 'utf8')
@@ -34,5 +41,30 @@ describe('Sand Dunes scene integration', () => {
       expect(cp.labelAr).toBeTruthy();
       expect(cp.labelEn).toBeTruthy();
     });
+  });
+
+  it('persists and restores checkpoint progress via storage helpers', () => {
+    const storage = window.localStorage;
+    clearCheckpoint(storage);
+    expect(loadCheckpoint(storage)).toBeNull();
+
+    storeCheckpoint(storage, { id: 'cp-2', index: 1, anchorX: 2048 });
+    const stored = storage.getItem(CHECKPOINT_STORAGE_KEY);
+    expect(stored).not.toBeNull();
+
+    const restored = loadCheckpoint(storage);
+    expect(restored?.id).toBe('cp-2');
+    expect(restored?.anchorX).toBe(2048);
+
+    const mockCheckpoints = [
+      { checkpointData: { id: 'cp-1', index: 0 } },
+      { checkpointData: { id: 'cp-2', index: 1 } },
+      { checkpointData: { id: 'cp-3', index: 2 } },
+    ];
+    const ids = completedCheckpointIds(mockCheckpoints, 1);
+    expect(ids).toEqual(['cp-1', 'cp-2']);
+
+    clearCheckpoint(storage);
+    expect(loadCheckpoint(storage)).toBeNull();
   });
 });
