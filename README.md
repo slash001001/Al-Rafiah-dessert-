@@ -28,6 +28,6 @@ Fully self-contained Phaser 3 experience tailored for GitHub Pages. All assets a
 - Toggle reduced motion via pause menu switches; HUD reflects nitro, combo, and kettle (spill meter).
 
 ## GitHub Pages Deployment
-1. Commit the `game/` folder to your repository.
+1. Commit the `` folder to your repository.
 2. In repository settings, enable **GitHub Pages** for the `main` branch with `/game` as the root.
 3. After Pages finishes building, access the published URL to play Rafiah Dune Adventure in the browser.
