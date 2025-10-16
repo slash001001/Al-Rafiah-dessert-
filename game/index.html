@@ -1,20 +1,46 @@
-<!DOCTYPE html>
-<html lang="ar">
+<!doctype html>
+<html lang="ar" dir="rtl">
   <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>طعيس – Taees Desert Adventure</title>
-    <link rel="stylesheet" href="./styles.css" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Baloo+Bhaijaan+2:wght@600;700&family=Tajawal:wght@400;700&display=swap" rel="stylesheet" />
-    <script src="https://cdn.jsdelivr.net/npm/phaser@3.70.0/dist/phaser.min.js" defer></script>
-    <script type="module" src="./main.js" defer></script>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+    <title>طعيس — Rafiah Dune Adventure</title>
+    <style>
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        padding: 0;
+        background: linear-gradient(180deg, #F8E9D2 0%, #FAD97C 40%, #E7C590 100%);
+        font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+        color: #2E3116;
+        overflow: hidden;
+      }
+      #game-root {
+        width: 100vw;
+        height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      canvas {
+        touch-action: none;
+      }
+      noscript {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: rgba(0, 0, 0, 0.8);
+        color: #fff;
+        padding: 24px 32px;
+        border-radius: 12px;
+        font-size: 1.2rem;
+      }
+    </style>
   </head>
   <body>
-    <div id="game-container"></div>
-    <noscript>
-      <p>يرجى تفعيل الجافاسكربت لتشغيل اللعبة.</p>
-    </noscript>
+    <div id="game-root"></div>
+    <noscript>يجب تفعيل الجافاسكربت لتجربة مغامرة الطعوس.</noscript>
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.70.0/dist/phaser.min.js" integrity="sha384-MBgGgVk6odd6JDACUtJ/xCNIUmhCSwN8FklarIYURiDZ6G7uMR2ykZXN0jQTZ8b/" crossorigin="anonymous"></script>
+    <script type="module" src="./main.js"></script>
   </body>
 </html>

@@ -1,30 +1,33 @@
-# Taees Desert Adventure
+# Rafiah Dune Adventure
 
-A polished Phaser 3 remake of the classic off-road Saudi dunes experience. The project embraces an Angry Birds-inspired art direction blended with Hill Climb Racing physics, delivering bright, premium visuals and bilingual UX.
+Fully self-contained Phaser 3 experience tailored for GitHub Pages. All assets are generated locally, so you only need to open `index.html`.
 
-## Features
-- Stylised Saudi dune environments with parallax layers, palm trees, camels, signage, and Aramco barrels placeholders.
-- Responsive gameplay built with Phaser 3 + Matter physics: suspension constraints, boost, tilt control, and dust particles.
-- Three handcrafted regions (الدمام، العلا، الثمامة) driven by `config.json` for quick iteration on terrain, decor, coins, and checkpoints.
-- Fully bilingual interface (Arabic/English) with rounded UI, toasts, and on-screen mobile controls.
-- Deploy-ready structure for GitHub Pages, using only CDN-hosted Phaser and local assets.
+## Run
+- Open `index.html` in any modern desktop or mobile browser (Chrome, Safari, Edge, Firefox).
+- No build step or server required.
 
 ## Controls
-- **Keyboard:** `→` accelerate, `←` reverse, `↑` air tilt forward, `↓` air tilt back, `Space` boost, `P` pause, `L` switch language.
-- **Touch:** right button accelerate, left button reverse, centre button activates nitro.
+- **Desktop**
+  - `Up / W` – throttle
+  - `Down / S` – brake / reverse
+  - `Left / A`, `Right / D` – tilt in air / weight transfer
+  - `Shift` – nitro boost
+  - `Space` – handbrake
+  - `P` or on-screen pause icon – pause menu
+- **Mobile**
+  - Bottom-left buttons: tilt left / tilt right (right also drives forward, left gives reverse)
+  - Bottom-right buttons: brake, nitro
+  - Pause button in lower-right corner
 
-## Audio
-Handcrafted WAV assets inside `assets/sounds/` feature synthesized oud phrases and supporting SFX generated specifically for this build. Swap them with studio recordings if you prefer.
+## Settings
+- Pause menu (tap `II`) exposes:
+  1. Resume / Restart
+  2. Music and SFX toggles
+  3. Language switch (Arabic / English)
+  4. Mode toggle (Family Safe vs. Arcade Cartoon when enabled in config)
+- Toggle reduced motion via pause menu switches; HUD reflects nitro, combo, and kettle (spill meter).
 
-## Development
-1. Serve locally (any static server) and open `index.html` inside the `game/` directory.
-2. Tune dunes, collectibles, and decor via `config.json`.
-3. Replace SVG placeholders inside `assets/` with final illustrations while keeping filenames intact.
-
-## Deployment
-1. Create a new GitHub repository.
-2. Upload the contents of the `game/` folder to the repo root.
-3. Enable GitHub Pages for the `main` branch with `/` as the root (or deploy the folder as a standalone repo).
-4. Access the live build at `https://username.github.io/game/`.
-
-Enjoy the dunes! 🎉
+## GitHub Pages Deployment
+1. Commit the `game/` folder to your repository.
+2. In repository settings, enable **GitHub Pages** for the `main` branch with `/game` as the root.
+3. After Pages finishes building, access the published URL to play Rafiah Dune Adventure in the browser.

@@ -1,0 +1,50 @@
+{
+  "spawn": { "x": 60, "y": 340, "vehicle": "gmc" },
+  "finish": { "x": 2550, "y": 320 },
+  "checkpoints": [900, 1650],
+  "softSand": [
+    { "from": 820, "to": 1040 },
+    { "from": 1780, "to": 1930 }
+  ],
+  "dogs": [
+    { "path": [[1300, 330], [1460, 330]], "speed": 60 },
+    { "path": [[2000, 325], [2140, 325]], "speed": 60 }
+  ],
+  "camels": [
+    { "x": 1200, "y": 300, "parallax": 0.85 },
+    { "x": 2100, "y": 300, "parallax": 0.85 }
+  ],
+  "coins": [300, 340, 520, 560, 880, 1200, 1400, 1420, 1440, 1600, 1900, 2300],
+  "food_spots": [
+    { "brand": "shalimar", "x": 980, "y": 340 },
+    { "brand": "albaik", "x": 1620, "y": 335 },
+    { "brand": "zad", "x": 2100, "y": 330 }
+  ],
+  "signs": [
+    { "x": 260, "text_key": "sign.rafiah12" },
+    { "x": 1100, "text_key": "sign.sand_warning" },
+    { "x": 1500, "text_key": "sign.no_drifting" },
+    { "x": 1580, "text_key": "sign.albaik" },
+    { "x": 940, "text_key": "sign.shalimar" },
+    { "x": 2060, "text_key": "sign.zad" }
+  ],
+  "terrain": [
+    { "x": 0, "y": 360 },
+    { "x": 180, "y": 350 },
+    { "x": 360, "y": 330 },
+    { "x": 540, "y": 345 },
+    { "x": 720, "y": 365 },
+    { "x": 900, "y": 340 },
+    { "x": 1080, "y": 350 },
+    { "x": 1260, "y": 320 },
+    { "x": 1440, "y": 335 },
+    { "x": 1620, "y": 315 },
+    { "x": 1800, "y": 345 },
+    { "x": 1980, "y": 355 },
+    { "x": 2160, "y": 330 },
+    { "x": 2340, "y": 335 },
+    { "x": 2520, "y": 320 },
+    { "x": 2800, "y": 340 }
+  ],
+  "sandstorm": { "enabled": true, "minSec": 25, "maxSec": 45, "durationSec": 4 }
+}
