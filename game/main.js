@@ -3,17 +3,20 @@
  * Reimagined Angry Birds meets Hill Climb Racing aesthetic with Saudi dunes flair.
  */
 
+import { SandDunesScene } from '../levels/sand_dunes/sand_dunes_scene.js';
+
 const MODULE_BASE_URL = new URL('.', import.meta.url);
 const CONFIG_URL = new URL('./config.json', MODULE_BASE_URL).href;
 const ASSET_BASE_URL = new URL('./assets/', MODULE_BASE_URL).href;
 
 const COLORS = {
-  sand: 0xF4C27A,
-  dunes: 0xD85F1A,
-  sky: 0xF8E9D2,
-  rocks: 0x5E3116,
-  accent: 0x2E86AB,
-  ui: 0x2277A9,
+  // Lighter, sunnier palette
+  sand: 0xF7E2B5,   // light sand
+  dunes: 0xE8A15E,  // warm light dunes
+  sky: 0xD6EFFB,    // light sky blue
+  rocks: 0x7A4B2A,  // slightly lighter brown
+  accent: 0x3AA7E3, // brighter azure
+  ui: 0x2E96D6,     // light blue for UI
 };
 
 const COPY = {
@@ -22,6 +25,7 @@ const COPY = {
     subtitle: 'قيادة صحراوية مستوحاة من طعوس السعودية',
     start: 'ابدأ الطعيس',
     levelSelect: 'اختر المنطقة',
+    sandDunesPrototype: 'طور الطعوس الجديد',
     resume: 'استمرار',
     restart: 'إعادة',
     paused: 'اللعبة متوقفة',
@@ -39,6 +43,7 @@ const COPY = {
     subtitle: 'Saudi dune driving with Angry Birds charm',
     start: 'Start Driving',
     levelSelect: 'Choose Region',
+    sandDunesPrototype: 'Sand Dunes prototype',
     resume: 'Resume',
     restart: 'Restart',
     paused: 'Game Paused',
@@ -171,22 +176,24 @@ class PreloadScene extends Phaser.Scene {
     dustGfx.generateTexture('dust', 32, 32);
     dustGfx.destroy();
 
-    // Sky gradient texture
+    // Sky gradient texture (light blue)
     const skyCanvas = this.textures.createCanvas('sky-gradient', 512, 512);
     const ctx = skyCanvas.getContext();
     const gradient = ctx.createLinearGradient(0, 0, 0, 512);
-    gradient.addColorStop(0, '#F8E9D2');
-    gradient.addColorStop(0.6, '#F4C27A');
-    gradient.addColorStop(1, '#D85F1A');
+    gradient.addColorStop(0, '#EAF7FF');     // top sky
+    gradient.addColorStop(0.55, '#D6EFFB');  // mid sky
+    gradient.addColorStop(1, '#BFE6FA');     // near horizon
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, 512, 512);
     skyCanvas.refresh();
 
     const duneCanvas = this.textures.createCanvas('dune-pattern', 512, 256);
     const dCtx = duneCanvas.getContext();
-    dCtx.fillStyle = '#F4C27A';
+    // lighter sand base
+    dCtx.fillStyle = '#F7E2B5';
     dCtx.fillRect(0, 0, 512, 256);
-    dCtx.fillStyle = '#D85F1A';
+    // lighter dune ridges
+    dCtx.fillStyle = '#E8A15E';
     for (let i = 0; i < 6; i++) {
       const peak = Math.random() * 80 + 40;
       dCtx.beginPath();
@@ -236,7 +243,12 @@ class MenuScene extends Phaser.Scene {
       this.scene.start('LevelSelectScene');
     });
 
-    const languageButton = this.createButton(centerX, startButton.y + 90, copy.language, () => {
+    const sandDunesButton = this.createButton(centerX, startButton.y + 90, copy.sandDunesPrototype, () => {
+      this.scene.stop('BackgroundScene');
+      this.scene.start('SandDunesScene');
+    }).setScale(0.9);
+
+    const languageButton = this.createButton(centerX, sandDunesButton.y + 90, copy.language, () => {
       const current = this.registry.get('lang');
       const next = current === 'ar' ? 'en' : 'ar';
       this.registry.set('lang', next);
@@ -247,6 +259,7 @@ class MenuScene extends Phaser.Scene {
     }).setScale(0.8);
 
     this.startButton = startButton;
+    this.sandDunesButton = sandDunesButton;
     this.languageButton = languageButton;
 
     this.game.events.on('language-changed', this.refreshLanguage, this);
@@ -261,6 +274,7 @@ class MenuScene extends Phaser.Scene {
     this.title.setText(copy.title);
     this.subtitle.setText(copy.subtitle);
     this.startButton.getData('label').setText(copy.start);
+    this.sandDunesButton.getData('label').setText(copy.sandDunesPrototype);
     this.languageButton.getData('label').setText(copy.language);
   }
 
@@ -1049,7 +1063,7 @@ const gameConfig = {
     target: 60,
     forceSetTimeOut: true,
   },
-  scene: [BootScene, PreloadScene, BackgroundScene, MenuScene, LevelSelectScene, GameScene, UIScene],
+  scene: [BootScene, PreloadScene, BackgroundScene, MenuScene, LevelSelectScene, SandDunesScene, GameScene, UIScene],
 };
 
 let phaserGame;
