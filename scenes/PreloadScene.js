@@ -28,6 +28,7 @@ export class PreloadScene extends Phaser.Scene {
   preload() {
     this.cameras.main.setBackgroundColor('#F8E9D2');
     this.addProgressBar();
+    console.log('Loading assets…');
 
     this.load.json('level-rafiah', 'levels/level_rafiah.json');
 

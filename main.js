@@ -1,7 +1,3 @@
-import { PreloadScene } from './scenes/PreloadScene.js';
-import { LevelScene } from './scenes/LevelScene.js';
-import { UIScene } from './scenes/UIScene.js';
-
 const CONFIG_URL = './config.json';
 const I18N_MAP = {
   ar: './i18n/ar.json',
@@ -16,7 +12,13 @@ async function loadJSON(url) {
   return res.json();
 }
 
-async function bootstrap() {
+async function bootstrap(preloadSceneClass) {
+  const [{ LevelScene }, { UIScene }] = await Promise.all([
+    import('./scenes/LevelScene.js'),
+    import('./scenes/UIScene.js')
+  ]);
+
+  const PreloadScene = preloadSceneClass ?? (await import('./scenes/PreloadScene.js')).PreloadScene;
   const [config, ar, en] = await Promise.all([
     loadJSON(CONFIG_URL),
     loadJSON(I18N_MAP.ar),
@@ -77,9 +79,10 @@ async function bootstrap() {
   game.events.on('reduced-motion', enabled => {
     shared.reducedMotion = !!enabled;
   });
+  return game;
 }
 
-bootstrap().catch(error => {
+function reportBootFailure(error) {
   const node = document.createElement('div');
   node.style.position = 'absolute';
   node.style.top = '12px';
@@ -92,5 +95,12 @@ bootstrap().catch(error => {
   node.style.maxWidth = '360px';
   node.textContent = `Failed to boot Rafiah Dune Adventure: ${error.message}`;
   document.body.appendChild(node);
-  console.error(error);
+  console.error('Boot failed:', error);
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+  import('./scenes/PreloadScene.js')
+    .then(module => bootstrap(module.PreloadScene))
+    .then(() => console.log('✅ Boot OK'))
+    .catch(reportBootFailure);
 });
