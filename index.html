@@ -40,7 +40,28 @@
   <body>
     <div id="game-root"></div>
     <noscript>يجب تفعيل الجافاسكربت لتجربة مغامرة الطعوس.</noscript>
-    <script src="https://cdn.jsdelivr.net/npm/phaser@3.70.0/dist/phaser.min.js" integrity="sha384-MBgGgVk6odd6JDACUtJ/xCNIUmhCSwN8FklarIYURiDZ6G7uMR2ykZXN0jQTZ8b/" crossorigin="anonymous"></script>
-    <script type="module" src="./main.js"></script>
+    <script defer data-phaser-cdn src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js" integrity="sha384-6UT7L5f2LSm5Wcowk0m1FXNBIo9nzG4Vr+G9KZde911MnJ4ADWE5d5dxbzgh0oUu" crossorigin="anonymous"></script>
+    <script>
+      (function waitForPhaser() {
+        const cdn = document.querySelector('script[data-phaser-cdn]');
+        function startGame() {
+          if (window.Phaser) {
+            console.log('✅ Phaser ready');
+            import('./main.js')
+              .then(() => console.log('✅ Rafiah booted via Phaser CDN'))
+              .catch(err => console.error('❌ Boot failed:', err));
+          } else {
+            console.log('⏳ Waiting for Phaser...');
+            setTimeout(startGame, 50);
+          }
+        }
+        if (cdn) {
+          cdn.addEventListener('load', startGame);
+          startGame();
+        } else {
+          console.error('⚠️ Phaser CDN script tag not found');
+        }
+      })();
+    </script>
   </body>
 </html>

@@ -98,9 +98,6 @@ function reportBootFailure(error) {
   console.error('Boot failed:', error);
 }
 
-window.addEventListener('DOMContentLoaded', () => {
-  import('./scenes/PreloadScene.js')
-    .then(module => bootstrap(module.PreloadScene))
-    .then(() => console.log('✅ Boot OK'))
-    .catch(reportBootFailure);
-});
+bootstrap()
+  .then(() => console.log('✅ Boot OK'))
+  .catch(reportBootFailure);
