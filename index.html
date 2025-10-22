@@ -2,65 +2,121 @@
 <html lang="ar" dir="rtl">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
-    <title>طعيس — Rafiah Dune Adventure</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Rafiah Dune Adventure</title>
     <style>
-      * { box-sizing: border-box; }
-      body {
+      *, *::before, *::after { box-sizing: border-box; }
+      html, body {
+        height: 100%;
         margin: 0;
-        padding: 0;
-        background: linear-gradient(180deg, #F8E9D2 0%, #FAD97C 40%, #E7C590 100%);
-        font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
-        color: #2E3116;
-        overflow: hidden;
-      }
-      #game-root {
-        width: 100vw;
-        height: 100vh;
-        display: flex;
-        align-items: center;
-        justify-content: center;
+        background: #0d0d0d;
+        color: #f0f0f0;
+        font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
       }
       canvas {
+        display: block;
+        margin: 0 auto;
+        image-rendering: pixelated;
         touch-action: none;
       }
       noscript {
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        background: rgba(0, 0, 0, 0.8);
-        color: #fff;
-        padding: 24px 32px;
-        border-radius: 12px;
+        position: fixed;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(0, 0, 0, 0.9);
+        color: #f8f8f8;
         font-size: 1.2rem;
+        z-index: 2147483647;
+      }
+      #rafiah-debug {
+        position: fixed;
+        left: 8px;
+        bottom: 8px;
+        z-index: 2147483647;
+        max-width: 60vw;
+        max-height: 40vh;
+        overflow: auto;
+        font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+        background: rgba(0, 0, 0, 0.75);
+        color: #0f0;
+        padding: 8px;
+        border: 1px solid #0f0;
+        border-radius: 6px;
+        white-space: pre-wrap;
       }
     </style>
   </head>
   <body>
-    <div id="game-root"></div>
     <noscript>يجب تفعيل الجافاسكربت لتجربة مغامرة الطعوس.</noscript>
-    <script defer data-phaser-cdn src="https://cdn.jsdelivr.net/npm/phaser@3.70.0/dist/phaser.min.js" integrity="sha384-MBgGgVk6odd6JDACUtJ/xCNIUmhCSwN8FklarIYURiDZ6G7uMR2ykZXN0jQTZ8b/" crossorigin="anonymous"></script>
+    <div id="rafiah-debug" hidden></div>
+    <script
+      defer
+      data-phaser-cdn
+      src="https://cdn.jsdelivr.net/npm/phaser@3.70.0/dist/phaser.min.js"
+      integrity="sha384-MBgGgVk6odd6JDACUtJ/xCNIUmhCSwN8FklarIYURiDZ6G7uMR2ykZXN0jQTZ8b/"
+      crossorigin="anonymous"
+    ></script>
     <script>
-      (function waitForPhaser() {
-        const cdn = document.querySelector('script[data-phaser-cdn]');
-        function startGame() {
-          if (window.Phaser) {
-            console.log('✅ Phaser ready');
-            import('./main.js')
-              .then(() => console.log('✅ Rafiah booted via Phaser CDN'))
-              .catch(err => console.error('❌ Boot failed:', err));
-          } else {
-            console.log('⏳ Waiting for Phaser...');
-            setTimeout(startGame, 50);
+      (function rafiahBoot() {
+        const debugBox = document.getElementById('rafiah-debug');
+        function log(...args) {
+          const line = args.map(part => {
+            if (typeof part === 'string') return part;
+            try { return JSON.stringify(part); } catch (_) { return String(part); }
+          }).join(' ');
+          console.log(...args);
+          if (debugBox) {
+            debugBox.hidden = false;
+            debugBox.append(line + '\n');
+            debugBox.scrollTop = debugBox.scrollHeight;
           }
         }
-        if (cdn) {
-          cdn.addEventListener('load', startGame);
-          startGame();
-        } else {
-          console.error('⚠️ Phaser CDN script tag not found');
+        let bootStarted = false;
+        function importMain() {
+          if (bootStarted) return;
+          bootStarted = true;
+          import('./main.js')
+            .then(() => log('✅ Boot: main.js imported'))
+            .catch(err => log('❌ Boot import failed', err));
         }
+        log('⏳ Waiting for Phaser (CDN) ...');
+        const cdn = document.querySelector('script[data-phaser-cdn]');
+        if (cdn) {
+          cdn.addEventListener('load', () => {
+            log('✅ Phaser CDN script loaded');
+            if (window.Phaser) startWhenReady();
+          });
+          cdn.addEventListener('error', () => {
+            log('⚠️ Phaser CDN failed to load from jsDelivr, attempting fallback…');
+            const fallback = document.createElement('script');
+            fallback.defer = true;
+            fallback.src = 'https://unpkg.com/phaser@3.70.0/dist/phaser.min.js';
+            fallback.addEventListener('load', () => {
+              log('✅ Phaser fallback CDN loaded');
+              if (window.Phaser) startWhenReady();
+            });
+            fallback.addEventListener('error', () => log('💥 Phaser fallback CDN load failed'));
+            document.head.appendChild(fallback);
+          });
+        } else {
+          log('⚠️ Phaser CDN script tag not found');
+        }
+        function startWhenReady() {
+          if (window.Phaser) {
+            log('✅ Phaser ready (window.Phaser found)');
+            importMain();
+            return true;
+          }
+          return false;
+        }
+        (function poll() {
+          if (startWhenReady()) return;
+          setTimeout(poll, 50);
+        })();
+        window.addEventListener('error', ev => log('💥 window.onerror:', ev.message || ev.type));
+        window.addEventListener('unhandledrejection', ev => log('💥 unhandledrejection:', String(ev.reason || ev)));
       })();
     </script>
   </body>

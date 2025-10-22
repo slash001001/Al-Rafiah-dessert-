@@ -1,103 +1,111 @@
-const CONFIG_URL = './config.json';
-const I18N_MAP = {
-  ar: './i18n/ar.json',
-  en: './i18n/en.json'
+import PreloadScene from './scenes/PreloadScene.js';
+import LevelScene from './scenes/LevelScene.js';
+import UIScene from './scenes/UIScene.js';
+
+const SHARED = window.RAFIAH_SHARED ?? {
+  config: null,
+  i18n: { ar: {}, en: {} },
+  language: 'ar',
+  reducedMotion: false,
+  unlockedVehicles: new Set(['gmc'])
+};
+window.RAFIAH_SHARED = SHARED;
+
+const { Game, AUTO, Scale, Events } = Phaser;
+
+const gameConfig = {
+  type: AUTO,
+  width: 1280,
+  height: 720,
+  backgroundColor: '#101418',
+  parent: document.body,
+  pixelArt: true,
+  scale: {
+    mode: Scale.FIT,
+    autoCenter: Scale.CENTER_BOTH
+  },
+  physics: {
+    default: 'matter',
+    matter: {
+      gravity: { y: 1.0 },
+      debug: false
+    }
+  },
+  scene: [PreloadScene, LevelScene, UIScene]
 };
 
-async function loadJSON(url) {
-  const res = await fetch(url, { cache: 'no-store' });
-  if (!res.ok) {
-    throw new Error(`Failed to load ${url}: ${res.status} ${res.statusText}`);
+const game = new Game(gameConfig);
+window.__RAFIAH_GAME = game;
+console.log('✅ Phaser.Game created');
+
+SHARED.game = game;
+SHARED.events = SHARED.events || new Events.EventEmitter();
+game.registry.set('shared', SHARED);
+
+game.events.on('language-change', lang => {
+  SHARED.language = lang;
+  document.documentElement.lang = lang;
+  document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
+});
+
+game.events.on('reduced-motion', enabled => {
+  SHARED.reducedMotion = !!enabled;
+});
+
+setTimeout(() => {
+  const canvas = document.querySelector('canvas');
+  if (canvas) {
+    console.log(`✅ Canvas detected (${canvas.width}×${canvas.height})`);
+  } else {
+    console.warn('⚠️ Canvas not found yet');
   }
-  return res.json();
-}
+}, 300);
 
-async function bootstrap(preloadSceneClass) {
-  const [{ LevelScene }, { UIScene }] = await Promise.all([
-    import('./scenes/LevelScene.js'),
-    import('./scenes/UIScene.js')
-  ]);
+bootstrapAsync().catch(err => {
+  console.warn('⚠️ bootstrapAsync encountered error', err);
+});
 
-  const PreloadScene = preloadSceneClass ?? (await import('./scenes/PreloadScene.js')).PreloadScene;
+async function bootstrapAsync() {
+  console.log('⏳ Fetching configuration & translations');
   const [config, ar, en] = await Promise.all([
-    loadJSON(CONFIG_URL),
-    loadJSON(I18N_MAP.ar),
-    loadJSON(I18N_MAP.en)
-  ]);
-
-  const shared = {
-    config,
-    i18n: { ar, en },
-    language: 'ar',
-    reducedMotion: false,
-    unlockedVehicles: new Set(config.vehicle === 'prado' ? ['gmc', 'prado'] : ['gmc'])
-  };
-
-  window.RAFIAH_SHARED = shared;
-
-  const game = new Phaser.Game({
-    type: Phaser.AUTO,
-    parent: 'game-root',
-    width: 1280,
-    height: 720,
-    backgroundColor: '#F8E9D2',
-    transparent: false,
-    physics: {
-      default: 'matter',
-      matter: {
-        gravity: { y: 1.0 },
-        enableSleep: false
-      }
-    },
-    scale: {
-      mode: Phaser.Scale.FIT,
-      autoCenter: Phaser.Scale.CENTER_BOTH,
-      width: 1280,
-      height: 720
-    },
-    dom: {
-      createContainer: false
-    },
-    audio: {
-      disableWebAudio: false
-    },
-    scene: [PreloadScene, LevelScene, UIScene]
+    fetchJSON('./config.json'),
+    fetchJSON('./i18n/ar.json'),
+    fetchJSON('./i18n/en.json')
+  ]).catch(err => {
+    console.warn('⚠️ config fallback used', err);
+    return [
+      { audio: { music: true, sfx: true }, mode: { familySafe: true }, vehicle: 'gmc' },
+      {},
+      {}
+    ];
   });
 
-  game.registry.set('shared', shared);
+  SHARED.config = config;
+  SHARED.i18n = { ar, en };
+  SHARED.language = SHARED.language || 'ar';
+  SHARED.unlockedVehicles = new Set(config.vehicle === 'prado' ? ['gmc', 'prado'] : ['gmc']);
 
-  const eventBus = new Phaser.Events.EventEmitter();
-  shared.events = eventBus;
-  game.events.emit('rafiah-shared-ready', shared);
+  game.registry.set('config', config);
+  game.registry.set('lang', SHARED.language);
+  game.registry.set('language', SHARED.language);
+  game.registry.set('level-data', null);
+  game.events.emit('rafiah-shared-ready', SHARED);
 
-  game.events.on('language-change', lang => {
-    shared.language = lang;
-    document.documentElement.lang = lang;
-    document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
-  });
-
-  game.events.on('reduced-motion', enabled => {
-    shared.reducedMotion = !!enabled;
-  });
-  return game;
+  console.log('✅ config loaded');
+  document.dispatchEvent(new CustomEvent('rafiah:config-loaded', { detail: config }));
+  document.documentElement.lang = SHARED.language;
+  document.documentElement.dir = SHARED.language === 'ar' ? 'rtl' : 'ltr';
 }
 
-function reportBootFailure(error) {
-  const node = document.createElement('div');
-  node.style.position = 'absolute';
-  node.style.top = '12px';
-  node.style.left = '12px';
-  node.style.background = '#8b1a1a';
-  node.style.color = '#fff';
-  node.style.padding = '12px 16px';
-  node.style.borderRadius = '8px';
-  node.style.fontFamily = 'monospace';
-  node.style.maxWidth = '360px';
-  node.textContent = `Failed to boot Rafiah Dune Adventure: ${error.message}`;
-  document.body.appendChild(node);
-  console.error('Boot failed:', error);
+async function fetchJSON(url) {
+  const response = await fetch(url, { cache: 'no-store' });
+  if (!response.ok) {
+    throw new Error(`${url} ${response.status} ${response.statusText}`);
+  }
+  return response.json();
 }
 
-bootstrap()
-  .then(() => console.log('✅ Boot OK'))
-  .catch(reportBootFailure);
+window.addEventListener('rafiah-level-ready', () => {
+  console.log('✅ Level visible (canvas present)');
+  console.log('✅ Boot OK');
+});

@@ -1,6 +1,8 @@
 import { test, expect } from '@playwright/test';
 
-test.skip('Sand Dunes stage end-to-end flow', async ({ page }) => {
+test('Sand Dunes stage end-to-end flow (placeholder)', async ({ page }) => {
+  test.skip(true, 'Complete flow will be implemented in later phases.');
+
   await page.goto('/');
   await page.waitForLoadState('domcontentloaded');
 

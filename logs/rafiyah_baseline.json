@@ -1,12 +1,14 @@
 {
-  "timestamp": "2025-10-16T12:25:40.157Z",
+  "timestamp": "2025-10-21T14:50:36.691Z",
   "engine": "Phaser ^3.70.0",
   "stageFiles": [
     "README_sand_dunes.md",
     "audio",
+    "checkpoint_store.js",
     "physics_utils.js",
     "sand_dunes_scene.js",
     "shaders",
+    "stabilization_utils.js",
     "terrain_config.json",
     "tests",
     "vehicle_config.json"

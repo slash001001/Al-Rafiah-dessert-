@@ -1,5 +1,3 @@
-const { RAFIAH_SHARED } = window;
-
 const AUDIO_KEYS = [
   'engine_idle',
   'engine_rev',
@@ -15,6 +13,11 @@ const AUDIO_KEYS = [
   'sheela_loop'
 ];
 
+const LEVEL_JSON_SOURCES = [
+  { key: 'level-rafiah-primary', path: './levels/level_rafiah.json' },
+  { key: 'level-rafiah-fallback', path: './game/levels/level_rafiah.json' }
+];
+
 export class PreloadScene extends Phaser.Scene {
   constructor() {
     super({ key: 'PreloadScene' });
@@ -23,24 +26,33 @@ export class PreloadScene extends Phaser.Scene {
 
   init() {
     this.shared = window.RAFIAH_SHARED || this.game.registry.get('shared') || {};
+    console.log('▶️ PreloadScene init');
   }
 
   preload() {
     this.cameras.main.setBackgroundColor('#F8E9D2');
     this.addProgressBar();
-    console.log('Loading assets…');
-
-    this.load.json('level-rafiah', 'levels/level_rafiah.json');
-
-    AUDIO_KEYS.forEach(key => {
-      this.load.audio(key, [`assets/sfx/${key}.mp3`]);
+    console.log('▶️ PreloadScene preload started');
+    this.load.on(Phaser.Loader.Events.FILE_LOAD_ERROR, file => {
+      console.warn('⚠️ Asset load error', file?.key, file?.src);
+    });
+    this.load.on(Phaser.Loader.Events.COMPLETE, () => {
+      console.log('✅ PreloadScene assets loaded');
     });
 
-    this.load.spritesheet('car-gmc', 'assets/sprites/chibi_gmc_8f.png', {
+    LEVEL_JSON_SOURCES.forEach(({ key, path }) => {
+      this.load.json(key, path);
+    });
+
+    AUDIO_KEYS.forEach(key => {
+      this.load.audio(key, [`./assets/sfx/${key}.mp3`]);
+    });
+
+    this.load.spritesheet('car-gmc', './assets/sprites/chibi_gmc_8f.png', {
       frameWidth: 256,
       frameHeight: 256
     });
-    this.load.spritesheet('car-prado', 'assets/sprites/prado_chibi_8f.png', {
+    this.load.spritesheet('car-prado', './assets/sprites/prado_chibi_8f.png', {
       frameWidth: 256,
       frameHeight: 256
     });
@@ -48,6 +60,23 @@ export class PreloadScene extends Phaser.Scene {
     this.generateProceduralTextures();
 
     this.load.once(Phaser.Loader.Events.COMPLETE, () => {
+      const { json } = this.cache;
+      let promoted = false;
+      for (const { key, path } of LEVEL_JSON_SOURCES) {
+        if (json.exists(key)) {
+          const data = json.get(key);
+          json.add('level-rafiah', data);
+          promoted = true;
+          json.remove(key);
+          console.log(`✅ Loaded level data from ${path}`);
+          break;
+        }
+      }
+      if (!promoted) {
+        console.warn('⚠️ level_rafiah.json missing from ./levels/ and ./game/levels/. Scene will start with empty layout.');
+        json.add('level-rafiah', { terrain: [], collectibles: [], hazards: [], checkpoints: [] });
+      }
+
       this.cache.json.add('i18n-ar', this.shared?.i18n?.ar ?? {});
       this.cache.json.add('i18n-en', this.shared?.i18n?.en ?? {});
     });
@@ -60,6 +89,8 @@ export class PreloadScene extends Phaser.Scene {
     this.game.registry.set('language', this.shared?.language ?? 'ar');
 
     this.createAnimations();
+    console.log('✅ Preload complete → starting Level');
+    window.dispatchEvent(new CustomEvent('rafiah-preload-complete'));
 
     this.scene.launch('LevelScene');
     this.scene.launch('UIScene');
@@ -307,3 +338,5 @@ export class PreloadScene extends Phaser.Scene {
     });
   }
 }
+
+export default PreloadScene;

@@ -58,6 +58,15 @@ export class LevelScene extends Phaser.Scene {
   }
 
   create() {
+    const fallbackBg = this.add.rectangle(640, 360, 1280, 720, 0x13212f, 0.65).setDepth(-1000);
+    fallbackBg.setData('rafiah-fallback', true);
+    const fallbackLabel = this.add.text(24, 24, 'Rafiah Level', {
+      fontFamily: 'ui-monospace, monospace',
+      fontSize: 20,
+      color: '#ffffff'
+    }).setDepth(1000);
+    console.log('✅ LevelScene create invoked');
+
     this.setupWorld();
     this.buildParallax();
     this.buildTerrain();
@@ -73,6 +82,16 @@ export class LevelScene extends Phaser.Scene {
     this.emitUI(EVENT_UI_READY, { paused: true, score: 0 });
     this.pauseSimulation(true);
     this.scheduleSandstorm();
+    this.time.delayedCall(2500, () => {
+      if (fallbackBg.active) {
+        fallbackBg.destroy();
+      }
+      if (fallbackLabel.active) {
+        fallbackLabel.destroy();
+      }
+    });
+    console.log('✅ LevelScene systems initialized');
+    window.dispatchEvent(new CustomEvent('rafiah-level-ready'));
   }
 
   setupWorld() {
@@ -824,3 +843,5 @@ export class LevelScene extends Phaser.Scene {
     this.audioManager?.destroy();
   }
 }
+
+export default LevelScene;

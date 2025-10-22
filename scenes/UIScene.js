@@ -430,3 +430,5 @@ export class UIScene extends Phaser.Scene {
     return map[key] || key;
   }
 }
+
+export default UIScene;

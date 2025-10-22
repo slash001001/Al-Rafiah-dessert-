@@ -6,6 +6,10 @@ Fully self-contained Phaser 3 experience tailored for GitHub Pages. All assets a
 - Open `index.html` in any modern desktop or mobile browser (Chrome, Safari, Edge, Firefox).
 - No build step or server required.
 
+## Diagnostics
+- Built-in overlay mirrors console output and stays available even on mobile (`#rafiah-debug`).
+- CDN loader waits for Phaser, falls back to unpkg if jsDelivr is unreachable, and logs each stage.
+
 ## Controls
 - **Desktop**
   - `Up / W` – throttle
