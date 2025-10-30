@@ -77,7 +77,7 @@
         function importMain() {
           if (bootStarted) return;
           bootStarted = true;
-          import('./main.js?v=20241201')
+          import('./main.js?v=20241202')
             .then(() => log('✅ Boot: main.js imported'))
             .catch(err => log('❌ Boot import failed', err));
         }
