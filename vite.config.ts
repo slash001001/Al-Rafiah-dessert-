@@ -10,6 +10,8 @@ export default defineConfig({
     open: '/index.html',
   },
   build: {
+    // Transpile to support older Safari (13) that lacks optional chaining/nullish coalescing
+    target: ['es2018', 'safari13'],
     outDir: 'dist',
     emptyOutDir: true,
   },
