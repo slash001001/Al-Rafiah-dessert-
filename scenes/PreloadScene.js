@@ -18,6 +18,36 @@ const LEVEL_JSON_SOURCES = [
   { key: 'level-rafiah-fallback', path: './game/levels/level_rafiah.json' }
 ];
 
+const createPathHelpers = (graphics) => {
+  const pen = { x: 0, y: 0 };
+
+  return {
+    moveTo(x, y) {
+      pen.x = x;
+      pen.y = y;
+      graphics.moveTo(x, y);
+    },
+    lineTo(x, y) {
+      pen.x = x;
+      pen.y = y;
+      graphics.lineTo(x, y);
+    },
+    quadraticTo(controlX, controlY, x, y, segments = 24) {
+      const curve = new Phaser.Curves.QuadraticBezier(
+        new Phaser.Math.Vector2(pen.x, pen.y),
+        new Phaser.Math.Vector2(controlX, controlY),
+        new Phaser.Math.Vector2(x, y)
+      );
+      const points = curve.getPoints(Math.max(8, segments));
+      for (let i = 1; i < points.length; i += 1) {
+        graphics.lineTo(points[i].x, points[i].y);
+      }
+      pen.x = x;
+      pen.y = y;
+    }
+  };
+};
+
 export class PreloadScene extends Phaser.Scene {
   constructor() {
     super({ key: 'PreloadScene' });
@@ -168,20 +198,21 @@ export class PreloadScene extends Phaser.Scene {
     if (this.textures.exists(key)) return;
     const g = this.add.graphics();
     g.fillStyle(0xE7C590, 1);
+    const path = createPathHelpers(g);
     g.beginPath();
-    g.moveTo(0, 256);
-    g.lineTo(0, 180);
-    g.quadraticBezierTo(130, 140, 260, 200);
-    g.quadraticBezierTo(360, 240, 512, 180);
-    g.lineTo(512, 256);
+    path.moveTo(0, 256);
+    path.lineTo(0, 180);
+    path.quadraticTo(130, 140, 260, 200);
+    path.quadraticTo(360, 240, 512, 180);
+    path.lineTo(512, 256);
     g.closePath();
     g.fillPath();
     g.fillGradientStyle(0xA86B38, 0xA86B38, 0xF4C27A, 0xF4C27A, 0.45, 0.1, 0.25, 0.1);
     g.beginPath();
-    g.moveTo(0, 220);
-    g.lineTo(512, 180);
-    g.lineTo(512, 256);
-    g.lineTo(0, 256);
+    path.moveTo(0, 220);
+    path.lineTo(512, 180);
+    path.lineTo(512, 256);
+    path.lineTo(0, 256);
     g.closePath();
     g.fillPath();
     g.generateTexture(key, 512, 256);
@@ -235,20 +266,21 @@ export class PreloadScene extends Phaser.Scene {
     if (!this.textures.exists('camel-silhouette')) {
       const g = this.add.graphics();
       g.fillStyle(0x9a6a3c, 0.95);
+      const path = createPathHelpers(g);
       g.beginPath();
-      g.moveTo(20, 120);
-      g.quadraticBezierTo(60, 20, 120, 70);
-      g.quadraticBezierTo(160, 20, 200, 70);
-      g.lineTo(240, 120);
-      g.lineTo(220, 120);
-      g.lineTo(210, 160);
-      g.lineTo(190, 160);
-      g.lineTo(180, 120);
-      g.lineTo(120, 120);
-      g.lineTo(112, 160);
-      g.lineTo(88, 160);
-      g.lineTo(82, 120);
-      g.lineTo(20, 120);
+      path.moveTo(20, 120);
+      path.quadraticTo(60, 20, 120, 70);
+      path.quadraticTo(160, 20, 200, 70);
+      path.lineTo(240, 120);
+      path.lineTo(220, 120);
+      path.lineTo(210, 160);
+      path.lineTo(190, 160);
+      path.lineTo(180, 120);
+      path.lineTo(120, 120);
+      path.lineTo(112, 160);
+      path.lineTo(88, 160);
+      path.lineTo(82, 120);
+      path.lineTo(20, 120);
       g.closePath();
       g.fillPath();
       g.generateTexture('camel-silhouette', 260, 200);
@@ -258,20 +290,21 @@ export class PreloadScene extends Phaser.Scene {
     if (!this.textures.exists('dog-runner')) {
       const g = this.add.graphics();
       g.fillStyle(0x4f3a2b, 1);
+      const path = createPathHelpers(g);
       g.beginPath();
-      g.moveTo(10, 90);
-      g.lineTo(150, 50);
-      g.lineTo(158, 62);
-      g.lineTo(136, 74);
-      g.quadraticBezierTo(50, 30, 120, 60);
-      g.lineTo(100, 120);
-      g.lineTo(90, 160);
-      g.lineTo(70, 160);
-      g.lineTo(68, 130);
-      g.lineTo(40, 150);
-      g.lineTo(30, 140);
-      g.lineTo(44, 110);
-      g.lineTo(10, 90);
+      path.moveTo(10, 90);
+      path.lineTo(150, 50);
+      path.lineTo(158, 62);
+      path.lineTo(136, 74);
+      path.quadraticTo(50, 30, 120, 60);
+      path.lineTo(100, 120);
+      path.lineTo(90, 160);
+      path.lineTo(70, 160);
+      path.lineTo(68, 130);
+      path.lineTo(40, 150);
+      path.lineTo(30, 140);
+      path.lineTo(44, 110);
+      path.lineTo(10, 90);
       g.closePath();
       g.fillPath();
       g.generateTexture('dog-runner', 200, 200);
@@ -295,12 +328,13 @@ export class PreloadScene extends Phaser.Scene {
     if (!this.textures.exists('kettle-icon')) {
       const g = this.add.graphics();
       g.fillStyle(0x5E3116, 1);
+      const path = createPathHelpers(g);
       g.beginPath();
-      g.moveTo(20, 60);
-      g.quadraticBezierTo(40, 10, 70, 10);
-      g.quadraticBezierTo(100, 10, 120, 60);
-      g.lineTo(120, 110);
-      g.quadraticBezierTo(70, 150, 20, 110);
+      path.moveTo(20, 60);
+      path.quadraticTo(40, 10, 70, 10, 20);
+      path.quadraticTo(100, 10, 120, 60, 20);
+      path.lineTo(120, 110);
+      path.quadraticTo(70, 150, 20, 110, 20);
       g.closePath();
       g.fillPath();
       g.lineStyle(6, 0x000000, 0.7);
