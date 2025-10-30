@@ -5,12 +5,12 @@ import { fileURLToPath } from 'node:url';
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const DIST = resolve(ROOT, 'dist');
 
-const assetsToCopy = [
+// Folders that contain JS modules imported by the built main chunk (in dist/assets)
+const moduleDirs = ['scenes', 'systems', 'physics', 'game'];
+
+// Other static assets that should live at site root
+const staticItems = [
   'main.js',
-  'scenes',
-  'systems',
-  'physics',
-  'game',
   'levels',
   'assets',
   'config',
@@ -36,20 +36,28 @@ async function ensureParentDir(path) {
   await mkdir(parent, { recursive: true });
 }
 
-async function copyItem(item) {
+async function copyItem(item, destBase = DIST) {
   const source = resolve(ROOT, item);
   if (!(await pathExists(source))) {
     return;
   }
 
-  const destination = resolve(DIST, item);
+  const destination = resolve(destBase, item);
   await ensureParentDir(destination);
   await cp(source, destination, { recursive: true });
 }
 
 async function main() {
-  for (const item of assetsToCopy) {
-    await copyItem(item);
+  // Copy module directories under dist/assets so relative imports resolve
+  const assetsBase = resolve(DIST, 'assets');
+  await mkdir(assetsBase, { recursive: true });
+  for (const dir of moduleDirs) {
+    await copyItem(dir, assetsBase);
+  }
+
+  // Copy static items at site root
+  for (const item of staticItems) {
+    await copyItem(item, DIST);
   }
 }
 
