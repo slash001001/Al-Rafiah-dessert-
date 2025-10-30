@@ -171,8 +171,8 @@ export class PreloadScene extends Phaser.Scene {
     g.beginPath();
     g.moveTo(0, 256);
     g.lineTo(0, 180);
-    g.quadraticCurveTo(130, 140, 260, 200);
-    g.quadraticCurveTo(360, 240, 512, 180);
+    g.quadraticBezierTo(130, 140, 260, 200);
+    g.quadraticBezierTo(360, 240, 512, 180);
     g.lineTo(512, 256);
     g.closePath();
     g.fillPath();
@@ -237,8 +237,8 @@ export class PreloadScene extends Phaser.Scene {
       g.fillStyle(0x9a6a3c, 0.95);
       g.beginPath();
       g.moveTo(20, 120);
-      g.quadraticCurveTo(60, 20, 120, 70);
-      g.quadraticCurveTo(160, 20, 200, 70);
+      g.quadraticBezierTo(60, 20, 120, 70);
+      g.quadraticBezierTo(160, 20, 200, 70);
       g.lineTo(240, 120);
       g.lineTo(220, 120);
       g.lineTo(210, 160);
@@ -260,11 +260,10 @@ export class PreloadScene extends Phaser.Scene {
       g.fillStyle(0x4f3a2b, 1);
       g.beginPath();
       g.moveTo(10, 90);
-      g.quadraticCurveTo(50, 30, 120, 60);
       g.lineTo(150, 50);
       g.lineTo(158, 62);
       g.lineTo(136, 74);
-      g.quadraticCurveTo(160, 110, 120, 140);
+      g.quadraticBezierTo(50, 30, 120, 60);
       g.lineTo(100, 120);
       g.lineTo(90, 160);
       g.lineTo(70, 160);
@@ -298,10 +297,8 @@ export class PreloadScene extends Phaser.Scene {
       g.fillStyle(0x5E3116, 1);
       g.beginPath();
       g.moveTo(20, 60);
-      g.quadraticCurveTo(40, 10, 70, 10);
-      g.quadraticCurveTo(100, 10, 120, 60);
       g.lineTo(120, 110);
-      g.quadraticCurveTo(70, 150, 20, 110);
+      g.quadraticBezierTo(160, 110, 120, 140);
       g.closePath();
       g.fillPath();
       g.lineStyle(6, 0x000000, 0.7);
@@ -340,3 +337,6 @@ export class PreloadScene extends Phaser.Scene {
 }
 
 export default PreloadScene;
+      g.quadraticBezierTo(40, 10, 70, 10);
+      g.quadraticBezierTo(100, 10, 120, 60);
+      g.quadraticBezierTo(70, 150, 20, 110);
