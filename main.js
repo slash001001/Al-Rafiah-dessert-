@@ -13,6 +13,58 @@ window.RAFIAH_SHARED = SHARED;
 
 const { Game, AUTO, Scale, Events } = Phaser;
 
+// Polyfill unsupported Graphics curve methods in case cached code calls them
+(() => {
+  try {
+    const G = Phaser.GameObjects?.Graphics?.prototype;
+    if (!G) return;
+    if (G.__rafiahBezierPatched) return;
+
+    const origMoveTo = G.moveTo;
+    const origLineTo = G.lineTo;
+
+    G.moveTo = function (x, y) {
+      this.__penX = x; this.__penY = y;
+      return origMoveTo.call(this, x, y);
+    };
+
+    G.lineTo = function (x, y) {
+      this.__penX = x; this.__penY = y;
+      return origLineTo.call(this, x, y);
+    };
+
+    const drawQuadratic = function (cpx, cpy, x, y, segments = 24) {
+      const startX = this.__penX ?? 0;
+      const startY = this.__penY ?? 0;
+      const curve = new Phaser.Curves.QuadraticBezier(
+        new Phaser.Math.Vector2(startX, startY),
+        new Phaser.Math.Vector2(cpx, cpy),
+        new Phaser.Math.Vector2(x, y)
+      );
+      const pts = curve.getPoints(Math.max(8, segments));
+      for (let i = 1; i < pts.length; i += 1) {
+        origLineTo.call(this, pts[i].x, pts[i].y);
+        this.__penX = pts[i].x; this.__penY = pts[i].y;
+      }
+      return this;
+    };
+
+    if (typeof G.quadraticBezierTo !== 'function') {
+      G.quadraticBezierTo = drawQuadratic;
+    }
+    if (typeof G.quadraticCurveTo !== 'function') {
+      G.quadraticCurveTo = drawQuadratic;
+    }
+
+    G.__rafiahBezierPatched = true;
+    // eslint-disable-next-line no-console
+    console.log('✅ Graphics bezier polyfill applied');
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.warn('⚠️ Failed to polyfill Graphics beziers', err);
+  }
+})();
+
 const gameConfig = {
   type: AUTO,
   width: 1280,
