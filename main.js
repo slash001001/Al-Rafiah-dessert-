@@ -1,6 +1,6 @@
-import PreloadScene from './scenes/PreloadScene.js';
-import LevelScene from './scenes/LevelScene.js';
-import UIScene from './scenes/UIScene.js';
+import PreloadScene from './scenes/PreloadScene.js?v=20241201';
+import LevelScene from './scenes/LevelScene.js?v=20241201';
+import UIScene from './scenes/UIScene.js?v=20241201';
 
 const SHARED = window.RAFIAH_SHARED ?? {
   config: null,
