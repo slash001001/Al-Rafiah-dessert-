@@ -297,8 +297,10 @@ export class PreloadScene extends Phaser.Scene {
       g.fillStyle(0x5E3116, 1);
       g.beginPath();
       g.moveTo(20, 60);
+      g.quadraticBezierTo(40, 10, 70, 10);
+      g.quadraticBezierTo(100, 10, 120, 60);
       g.lineTo(120, 110);
-      g.quadraticBezierTo(160, 110, 120, 140);
+      g.quadraticBezierTo(70, 150, 20, 110);
       g.closePath();
       g.fillPath();
       g.lineStyle(6, 0x000000, 0.7);
@@ -337,6 +339,3 @@ export class PreloadScene extends Phaser.Scene {
 }
 
 export default PreloadScene;
-      g.quadraticBezierTo(40, 10, 70, 10);
-      g.quadraticBezierTo(100, 10, 120, 60);
-      g.quadraticBezierTo(70, 150, 20, 110);
