@@ -14,6 +14,14 @@ export default defineConfig({
     target: ['es2018', 'safari13'],
     outDir: 'dist',
     emptyOutDir: true,
+    chunkSizeWarningLimit: 2000,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          phaser: ['phaser']
+        }
+      }
+    },
   },
   resolve: {
     alias: {
