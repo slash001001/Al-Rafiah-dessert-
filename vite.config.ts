@@ -1,8 +1,8 @@
 import { defineConfig } from 'vite';
 
 export default defineConfig({
-  // Use relative paths so the app works under GitHub Pages subpaths
-  base: './',
+  // Use repo subpath for GitHub Pages
+  base: '/Al-Rafiah-dessert-/',
   root: '.',
   publicDir: 'public',
   server: {
