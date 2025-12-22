@@ -1,3 +1,5 @@
+import Phaser from 'phaser';
+
 const AUDIO_KEYS = [
   'engine_idle',
   'engine_rev',
@@ -119,11 +121,10 @@ export class PreloadScene extends Phaser.Scene {
     this.game.registry.set('language', this.shared?.language ?? 'ar');
 
     this.createAnimations();
-    console.log('✅ Preload complete → starting Level');
+    console.log('✅ Preload complete → starting Menu');
     window.dispatchEvent(new CustomEvent('rafiah-preload-complete'));
 
-    this.scene.launch('LevelScene');
-    this.scene.launch('UIScene');
+    this.scene.start('MenuScene');
     this.scene.stop();
   }
 

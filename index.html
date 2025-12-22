@@ -47,77 +47,10 @@
         white-space: pre-wrap;
       }
     </style>
+    <script type="module" crossorigin src="/Al-Rafiah-dessert-/assets/index-D3aGbwhI.js"></script>
   </head>
   <body>
     <noscript>يجب تفعيل الجافاسكربت لتجربة مغامرة الطعوس.</noscript>
     <div id="rafiah-debug" hidden></div>
-    <script
-      defer
-      data-phaser-cdn
-      src="https://cdn.jsdelivr.net/npm/phaser@3.70.0/dist/phaser.min.js"
-      integrity="sha384-MBgGgVk6odd6JDACUtJ/xCNIUmhCSwN8FklarIYURiDZ6G7uMR2ykZXN0jQTZ8b/"
-      crossorigin="anonymous"
-    ></script>
-    <script>
-      (function rafiahBoot() {
-        const debugBox = document.getElementById('rafiah-debug');
-        function log(...args) {
-          const line = args.map(part => {
-            if (typeof part === 'string') return part;
-            try { return JSON.stringify(part); } catch (_) { return String(part); }
-          }).join(' ');
-          console.log(...args);
-          if (debugBox) {
-            debugBox.hidden = false;
-            debugBox.append(line + '\n');
-            debugBox.scrollTop = debugBox.scrollHeight;
-          }
-        }
-        let bootStarted = false;
-        function importMain() {
-          if (bootStarted) return;
-          bootStarted = true;
-          import('./main.es2018.js?v=20241203')
-            .then(() => log('✅ Boot: main.js imported'))
-            .catch(err => log('❌ Boot import failed', err));
-        }
-        log('⏳ Waiting for Phaser (CDN) ...');
-        const cdn = document.querySelector('script[data-phaser-cdn]');
-        if (cdn) {
-          cdn.addEventListener('load', () => {
-            log('✅ Phaser CDN script loaded');
-            if (window.Phaser) startWhenReady();
-          });
-          cdn.addEventListener('error', () => {
-            log('⚠️ Phaser CDN failed to load from jsDelivr, attempting fallback…');
-            const fallback = document.createElement('script');
-            fallback.defer = true;
-            fallback.src = 'https://unpkg.com/phaser@3.70.0/dist/phaser.min.js';
-            fallback.addEventListener('load', () => {
-              log('✅ Phaser fallback CDN loaded');
-              if (window.Phaser) startWhenReady();
-            });
-            fallback.addEventListener('error', () => log('💥 Phaser fallback CDN load failed'));
-            document.head.appendChild(fallback);
-          });
-        } else {
-          log('⚠️ Phaser CDN script tag not found');
-        }
-        function startWhenReady() {
-          if (window.Phaser) {
-            log('✅ Phaser ready (window.Phaser found)');
-            importMain();
-            return true;
-          }
-          return false;
-        }
-        (function poll() {
-          if (startWhenReady()) return;
-          setTimeout(poll, 50);
-        })();
-        window.addEventListener('error', ev => log('💥 window.onerror:', ev.message || ev.type));
-        window.addEventListener('unhandledrejection', ev => log('💥 unhandledrejection:', String(ev.reason || ev)));
-      })();
-    </script>
   </body>
 </html>

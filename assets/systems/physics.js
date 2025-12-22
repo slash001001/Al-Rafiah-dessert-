@@ -1,3 +1,5 @@
+import Phaser from 'phaser';
+
 const Matter = Phaser.Physics.Matter.Matter;
 const { Bodies, Body, Constraint } = Matter;
 

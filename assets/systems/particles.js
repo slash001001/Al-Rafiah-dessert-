@@ -1,3 +1,5 @@
+import Phaser from 'phaser';
+
 function ensureTexture(scene, key, builder) {
   if (scene.textures.exists(key)) return;
   builder();
