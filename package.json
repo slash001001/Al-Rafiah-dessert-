@@ -6,6 +6,7 @@
   "description": "Raf'iyah desert driving experience with Phaser and upcoming sand dunes rebuild.",
   "scripts": {
     "dev": "vite",
+    "preview": "vite preview",
     "build": "tsc -p tsconfig.json && vite build",
     "postbuild": "node tools/copy_static_assets.mjs",
     "test": "vitest run",

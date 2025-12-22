@@ -16,11 +16,14 @@ const vehicleSpec = JSON.parse(
   readFileSync(resolve(process.cwd(), 'levels/sand_dunes/vehicle_config.json'), 'utf8')
 );
 
+type DuneSpec = { heightMeters: number; lengthMeters: number };
+type CheckpointSpec = { labelAr: string; labelEn: string };
+
 describe('Sand Dunes scene integration', () => {
   it('loads terrain profile with valid dune segments', () => {
     expect(Array.isArray(terrainSpec.dunes)).toBe(true);
     expect(terrainSpec.dunes.length).toBeGreaterThanOrEqual(3);
-    terrainSpec.dunes.forEach((dune: any) => {
+    terrainSpec.dunes.forEach((dune: DuneSpec) => {
       expect(dune.heightMeters).toBeGreaterThan(1);
       expect(dune.heightMeters).toBeLessThanOrEqual(4.5);
       expect(dune.lengthMeters).toBeGreaterThan(20);
@@ -37,7 +40,7 @@ describe('Sand Dunes scene integration', () => {
   it('defines three checkpoints with bilingual labels', () => {
     const checkpoints = terrainSpec.checkpoints.slice(0, 3);
     expect(checkpoints.length).toBe(3);
-    checkpoints.forEach((cp: any) => {
+    checkpoints.forEach((cp: CheckpointSpec) => {
       expect(cp.labelAr).toBeTruthy();
       expect(cp.labelEn).toBeTruthy();
     });

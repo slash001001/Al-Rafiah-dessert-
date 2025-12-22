@@ -18,12 +18,14 @@ export class UIScene extends Phaser.Scene {
   constructor() {
     super({ key: 'UIScene' });
     this.shared = null;
+    this.autoStart = false;
   }
 
-  init() {
+  init(data) {
     this.shared = window.RAFIAH_SHARED || this.game.registry.get('shared') || {};
     this.language = this.shared.language ?? 'ar';
     this.eventsBus = this.shared.events || this.game.events;
+    this.autoStart = !!data?.autoStart;
     this.state = {
       paused: true,
       finished: false,
@@ -126,6 +128,7 @@ export class UIScene extends Phaser.Scene {
       this.eventsBus.emit(EVENT_START);
     });
     this.startOverlay.add([bg, title, button]);
+    this.startOverlay.setVisible(false);
   }
 
   createPauseMenu() {
@@ -328,7 +331,12 @@ export class UIScene extends Phaser.Scene {
   }
 
   handleReady = () => {
-    this.startOverlay.setVisible(true);
+    if (this.autoStart) {
+      this.startOverlay.setVisible(false);
+      this.eventsBus.emit(EVENT_START);
+    } else {
+      this.startOverlay.setVisible(true);
+    }
   };
 
   updateHud = hud => {

@@ -1,6 +1,8 @@
 import PreloadScene from './scenes/PreloadScene.js?v=20241202';
+import MenuScene from './scenes/MenuScene.js?v=20241202';
 import LevelScene from './scenes/LevelScene.js?v=20241202';
 import UIScene from './scenes/UIScene.js?v=20241202';
+import WinScene from './scenes/WinScene.js?v=20241202';
 
 const SHARED = window.RAFIAH_SHARED ?? {
   config: null,
@@ -83,7 +85,7 @@ const gameConfig = {
       debug: false
     }
   },
-  scene: [PreloadScene, LevelScene, UIScene]
+  scene: [PreloadScene, MenuScene, LevelScene, UIScene, WinScene]
 };
 
 const game = new Game(gameConfig);

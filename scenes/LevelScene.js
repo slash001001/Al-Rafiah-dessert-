@@ -24,14 +24,16 @@ export class LevelScene extends Phaser.Scene {
   constructor() {
     super({ key: 'LevelScene' });
     this.shared = null;
+    this.autoStart = false;
   }
 
-  init() {
+  init(data) {
     this.shared = window.RAFIAH_SHARED || this.game.registry.get('shared') || {};
     this.config = this.game.registry.get('config') || this.shared.config || {};
     this.levelData = this.game.registry.get('level-data') || {};
     this.language = this.game.registry.get('language') || this.shared.language || 'ar';
     this.eventsBus = this.shared.events || this.game.events;
+    this.autoStart = !!data?.autoStart;
     this.mobileInput = {
       left: false,
       right: false,
@@ -82,6 +84,9 @@ export class LevelScene extends Phaser.Scene {
     this.emitUI(EVENT_UI_READY, { paused: true, score: 0 });
     this.pauseSimulation(true);
     this.scheduleSandstorm();
+    if (this.autoStart) {
+      this.time.delayedCall(200, () => this.handleStart());
+    }
     this.time.delayedCall(2500, () => {
       if (fallbackBg.active) {
         fallbackBg.destroy();
@@ -813,6 +818,10 @@ export class LevelScene extends Phaser.Scene {
       this.shared.unlockedVehicles?.add?.('prado');
       this.emitUI(EVENT_UI_TOAST, { key: 'toast.unlock.prado' });
     }
+    this.time.delayedCall(450, () => {
+      this.scene.stop('UIScene');
+      this.scene.start('WinScene', { score: this.score, rank });
+    });
   }
 
   calculateRank(score) {
