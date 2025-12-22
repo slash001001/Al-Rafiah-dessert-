@@ -65,16 +65,23 @@ function writeBest(timeSec) {
 
 function playBeep(freq = 440, duration = 0.12, muted = false) {
   if (muted) return;
-  const ctx = playBeep.ctx || new AudioContext();
-  playBeep.ctx = ctx;
-  const osc = ctx.createOscillator();
-  const gain = ctx.createGain();
-  osc.frequency.value = freq;
-  gain.gain.value = 0.08;
-  osc.connect(gain);
-  gain.connect(ctx.destination);
-  osc.start();
-  osc.stop(ctx.currentTime + duration);
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if (!AC) return;
+  try {
+    const ctx = playBeep.ctx || new AC();
+    playBeep.ctx = ctx;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.frequency.value = freq;
+    gain.gain.value = 0.08;
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + duration);
+  } catch (err) {
+    // Ignore audio init errors
+    console.warn('beep failed', err);
+  }
 }
 
 class MenuScene extends Phaser.Scene {
