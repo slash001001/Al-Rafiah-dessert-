@@ -1,171 +1,184 @@
 import Phaser from 'phaser';
-import PreloadScene from './scenes/PreloadScene.js?v=20241202';
-import MenuScene from './scenes/MenuScene.js?v=20241202';
-import LevelScene from './scenes/LevelScene.js?v=20241202';
-import UIScene from './scenes/UIScene.js?v=20241202';
-import WinScene from './scenes/WinScene.js?v=20241202';
 
-// Expose Phaser globally for legacy modules
-if (!window.Phaser) {
-  window.Phaser = Phaser;
+class MenuScene extends Phaser.Scene {
+  constructor() {
+    super({ key: 'MenuScene' });
+  }
+
+  create() {
+    const { width, height } = this.scale;
+    this.cameras.main.setBackgroundColor('#0f1720');
+
+    this.add.text(width / 2, height / 2 - 120, 'Rafiah Sand Dunes', {
+      fontSize: 48,
+      fontFamily: 'system-ui, sans-serif',
+      color: '#f4c27a'
+    }).setOrigin(0.5);
+
+    this.add.text(width / 2, height / 2 - 60, 'Arrow Keys / WASD to drive', {
+      fontSize: 20,
+      fontFamily: 'system-ui, sans-serif',
+      color: '#ffffff'
+    }).setOrigin(0.5);
+
+    const startText = this.add.text(width / 2, height / 2 + 20, '▶ Start', {
+      fontSize: 32,
+      fontFamily: 'system-ui, sans-serif',
+      color: '#ffffff',
+      backgroundColor: '#2e86ab',
+      padding: { x: 16, y: 10 }
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+
+    startText.on('pointerdown', () => this.startGame());
+    this.input.keyboard.once('keydown-SPACE', () => this.startGame());
+    this.input.keyboard.once('keydown-ENTER', () => this.startGame());
+  }
+
+  startGame() {
+    this.scene.start('PlayScene');
+  }
 }
 
-const SHARED = window.RAFIAH_SHARED ?? {
-  config: null,
-  i18n: { ar: {}, en: {} },
-  language: 'ar',
-  reducedMotion: false,
-  unlockedVehicles: new Set(['gmc'])
-};
-window.RAFIAH_SHARED = SHARED;
-
-const { Game, AUTO, Scale, Events } = Phaser;
-
-// Polyfill unsupported Graphics curve methods in case cached code calls them
-(() => {
-  try {
-    const G = Phaser.GameObjects?.Graphics?.prototype;
-    if (!G) return;
-    if (G.__rafiahBezierPatched) return;
-
-    const origMoveTo = G.moveTo;
-    const origLineTo = G.lineTo;
-
-    G.moveTo = function (x, y) {
-      this.__penX = x; this.__penY = y;
-      return origMoveTo.call(this, x, y);
-    };
-
-    G.lineTo = function (x, y) {
-      this.__penX = x; this.__penY = y;
-      return origLineTo.call(this, x, y);
-    };
-
-    const drawQuadratic = function (cpx, cpy, x, y, segments = 24) {
-      const startX = this.__penX ?? 0;
-      const startY = this.__penY ?? 0;
-      const curve = new Phaser.Curves.QuadraticBezier(
-        new Phaser.Math.Vector2(startX, startY),
-        new Phaser.Math.Vector2(cpx, cpy),
-        new Phaser.Math.Vector2(x, y)
-      );
-      const pts = curve.getPoints(Math.max(8, segments));
-      for (let i = 1; i < pts.length; i += 1) {
-        origLineTo.call(this, pts[i].x, pts[i].y);
-        this.__penX = pts[i].x; this.__penY = pts[i].y;
-      }
-      return this;
-    };
-
-    if (typeof G.quadraticBezierTo !== 'function') {
-      G.quadraticBezierTo = drawQuadratic;
-    }
-    if (typeof G.quadraticCurveTo !== 'function') {
-      G.quadraticCurveTo = drawQuadratic;
-    }
-
-    G.__rafiahBezierPatched = true;
-    // eslint-disable-next-line no-console
-    console.log('✅ Graphics bezier polyfill applied');
-  } catch (err) {
-    // eslint-disable-next-line no-console
-    console.warn('⚠️ Failed to polyfill Graphics beziers', err);
+class PlayScene extends Phaser.Scene {
+  constructor() {
+    super({ key: 'PlayScene' });
+    this.player = null;
+    this.finishZone = null;
+    this.cursors = null;
+    this.keys = null;
+    this.generatedTextures = false;
   }
-})();
 
-const gameConfig = {
-  type: AUTO,
-  width: 1280,
-  height: 720,
-  backgroundColor: '#101418',
+  preload() {
+    if (this.generatedTextures) return;
+    const g = this.make.graphics({ add: false });
+    g.fillStyle(0x2e86ab, 1);
+    g.fillRect(0, 0, 40, 60);
+    g.generateTexture('player-box', 40, 60);
+    g.clear();
+    g.fillStyle(0xf4c27a, 1);
+    g.fillRect(0, 0, 80, 140);
+    g.generateTexture('finish-flag', 80, 140);
+    g.destroy();
+    this.generatedTextures = true;
+  }
+
+  create() {
+    const { width, height } = this.scale;
+    this.cameras.main.setBackgroundColor('#f5e6c5');
+    this.physics.world.setBounds(0, 0, 2200, height);
+
+    // Simple rolling dunes made of static bodies
+    const ground = this.physics.add.staticGroup();
+    const segments = 7;
+    for (let i = 0; i < segments; i += 1) {
+      const segmentWidth = 360;
+      const x = i * segmentWidth + segmentWidth / 2;
+      const bump = (i % 2 === 0 ? 0 : 40) + (i === 3 ? 70 : 0);
+      const y = height - 80 - bump;
+      const rect = this.add.rectangle(x, y, segmentWidth, 80, 0xd2a363).setOrigin(0.5);
+      ground.add(rect);
+      this.physics.add.existing(rect, true);
+    }
+
+    this.player = this.physics.add.sprite(120, height - 200, 'player-box');
+    this.player.setCollideWorldBounds(true);
+    this.player.body.setSize(40, 60);
+    this.player.body.setMaxVelocity(320, 900);
+    this.player.body.setDragX(600);
+    this.player.body.setBounce(0.05);
+
+    this.finishZone = this.physics.add.staticSprite(1900, height - 220, 'finish-flag');
+    this.finishZone.setAlpha(0.9);
+    this.finishZone.body.setSize(80, 140);
+
+    this.physics.add.collider(this.player, ground);
+    this.physics.add.overlap(this.player, this.finishZone, () => this.handleFinish(), undefined, this);
+
+    this.cursors = this.input.keyboard.createCursorKeys();
+    this.keys = this.input.keyboard.addKeys('W,A,S,D');
+
+    this.cameras.main.startFollow(this.player, true, 0.08, 0.08);
+    this.cameras.main.setBounds(0, 0, 2200, height);
+
+    this.add.text(24, 18, 'Reach the flag!', {
+      fontSize: 20,
+      fontFamily: 'system-ui, sans-serif',
+      color: '#0f1720',
+      backgroundColor: 'rgba(255,255,255,0.6)',
+      padding: { x: 10, y: 6 }
+    }).setScrollFactor(0);
+  }
+
+  update() {
+    if (!this.player || !this.player.body) return;
+    const onGround = this.player.body.blocked.down;
+    const left = this.cursors.left.isDown || this.keys.A.isDown;
+    const right = this.cursors.right.isDown || this.keys.D.isDown;
+    const jump = this.cursors.up.isDown || this.keys.W.isDown;
+
+    if (left) {
+      this.player.setAccelerationX(-900);
+      this.player.setFlipX(true);
+    } else if (right) {
+      this.player.setAccelerationX(900);
+      this.player.setFlipX(false);
+    } else {
+      this.player.setAccelerationX(0);
+    }
+
+    if (jump && onGround) {
+      this.player.setVelocityY(-420);
+    }
+  }
+
+  handleFinish() {
+    this.scene.start('WinScene');
+  }
+}
+
+class WinScene extends Phaser.Scene {
+  constructor() {
+    super({ key: 'WinScene' });
+  }
+
+  create() {
+    const { width, height } = this.scale;
+    this.cameras.main.setBackgroundColor('#0d1821');
+    this.add.text(width / 2, height / 2 - 60, 'You Win!', {
+      fontSize: 48,
+      fontFamily: 'system-ui, sans-serif',
+      color: '#f4c27a'
+    }).setOrigin(0.5);
+
+    const restart = this.add.text(width / 2, height / 2 + 30, '↻ Restart', {
+      fontSize: 32,
+      fontFamily: 'system-ui, sans-serif',
+      color: '#ffffff',
+      backgroundColor: '#2e86ab',
+      padding: { x: 18, y: 12 }
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+
+    restart.on('pointerdown', () => this.scene.start('MenuScene'));
+    this.input.keyboard.once('keydown-SPACE', () => this.scene.start('MenuScene'));
+    this.input.keyboard.once('keydown-ENTER', () => this.scene.start('MenuScene'));
+  }
+}
+
+const config = {
+  type: Phaser.AUTO,
+  width: 960,
+  height: 540,
+  backgroundColor: '#0f1720',
   parent: document.body,
-  pixelArt: true,
-  scale: {
-    mode: Scale.FIT,
-    autoCenter: Scale.CENTER_BOTH
-  },
   physics: {
-    default: 'matter',
-    matter: {
-      gravity: { y: 1.0 },
+    default: 'arcade',
+    arcade: {
+      gravity: { y: 980 },
       debug: false
     }
   },
-  scene: [PreloadScene, MenuScene, LevelScene, UIScene, WinScene]
+  scene: [MenuScene, PlayScene, WinScene]
 };
 
-const game = new Game(gameConfig);
-window.__RAFIAH_GAME = game;
-console.log('✅ Phaser.Game created');
-
-SHARED.game = game;
-SHARED.events = SHARED.events || new Events.EventEmitter();
-game.registry.set('shared', SHARED);
-
-game.events.on('language-change', lang => {
-  SHARED.language = lang;
-  document.documentElement.lang = lang;
-  document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
-});
-
-game.events.on('reduced-motion', enabled => {
-  SHARED.reducedMotion = !!enabled;
-});
-
-setTimeout(() => {
-  const canvas = document.querySelector('canvas');
-  if (canvas) {
-    console.log(`✅ Canvas detected (${canvas.width}×${canvas.height})`);
-  } else {
-    console.warn('⚠️ Canvas not found yet');
-  }
-}, 300);
-
-bootstrapAsync().catch(err => {
-  console.warn('⚠️ bootstrapAsync encountered error', err);
-});
-
-async function bootstrapAsync() {
-  console.log('⏳ Fetching configuration & translations');
-  const [config, ar, en] = await Promise.all([
-    fetchJSON('./config.json'),
-    fetchJSON('./i18n/ar.json'),
-    fetchJSON('./i18n/en.json')
-  ]).catch(err => {
-    console.warn('⚠️ config fallback used', err);
-    return [
-      { audio: { music: true, sfx: true }, mode: { familySafe: true }, vehicle: 'gmc' },
-      {},
-      {}
-    ];
-  });
-
-  SHARED.config = config;
-  SHARED.i18n = { ar, en };
-  SHARED.language = SHARED.language || 'ar';
-  SHARED.unlockedVehicles = new Set(config.vehicle === 'prado' ? ['gmc', 'prado'] : ['gmc']);
-
-  game.registry.set('config', config);
-  game.registry.set('lang', SHARED.language);
-  game.registry.set('language', SHARED.language);
-  game.registry.set('level-data', null);
-  game.events.emit('rafiah-shared-ready', SHARED);
-
-  console.log('✅ config loaded');
-  document.dispatchEvent(new CustomEvent('rafiah:config-loaded', { detail: config }));
-  document.documentElement.lang = SHARED.language;
-  document.documentElement.dir = SHARED.language === 'ar' ? 'rtl' : 'ltr';
-}
-
-async function fetchJSON(url) {
-  const response = await fetch(url, { cache: 'no-store' });
-  if (!response.ok) {
-    throw new Error(`${url} ${response.status} ${response.statusText}`);
-  }
-  return response.json();
-}
-
-window.addEventListener('rafiah-level-ready', () => {
-  console.log('✅ Level visible (canvas present)');
-  console.log('✅ Boot OK');
-});
+new Phaser.Game(config);
