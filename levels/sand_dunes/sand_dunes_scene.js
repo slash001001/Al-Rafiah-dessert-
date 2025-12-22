@@ -1,12 +1,9 @@
+import Phaser from 'phaser';
 import { PX_PER_METER, DEFAULT_SAND_PHYSICS, tractionFromSlope } from './physics_utils.js';
 import { clamp, smoothValue, cameraOffsetStep, playbackRateFromAcceleration, volumeFromAcceleration, applyDeadZone } from './stabilization_utils.js';
 import { storeCheckpoint, loadCheckpoint, clearCheckpoint, completedCheckpointIds } from './checkpoint_store.js';
 
-const PhaserLib = window.Phaser;
-
-if (!PhaserLib) {
-  throw new Error('Phaser library is required before loading SandDunesScene.');
-}
+const PhaserLib = Phaser;
 
 const MatterLib = PhaserLib.Physics.Matter.Matter;
 const { Bodies, Body, Constraint } = MatterLib;

@@ -1,3 +1,5 @@
+import Phaser from 'phaser';
+
 export class WinScene extends Phaser.Scene {
   constructor() {
     super({ key: 'WinScene' });

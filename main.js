@@ -1,8 +1,14 @@
+import Phaser from 'phaser';
 import PreloadScene from './scenes/PreloadScene.js?v=20241202';
 import MenuScene from './scenes/MenuScene.js?v=20241202';
 import LevelScene from './scenes/LevelScene.js?v=20241202';
 import UIScene from './scenes/UIScene.js?v=20241202';
 import WinScene from './scenes/WinScene.js?v=20241202';
+
+// Expose Phaser globally for legacy modules
+if (!window.Phaser) {
+  window.Phaser = Phaser;
+}
 
 const SHARED = window.RAFIAH_SHARED ?? {
   config: null,

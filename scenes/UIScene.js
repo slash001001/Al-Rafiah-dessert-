@@ -1,3 +1,5 @@
+import Phaser from 'phaser';
+
 const EVENT_UI_READY = 'level-ready';
 const EVENT_UI_HUD = 'level-hud';
 const EVENT_UI_TOAST = 'level-toast';

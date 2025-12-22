@@ -20,7 +20,7 @@
     "push:pages": "echo \"Configure deploy script once hosting target is chosen\" && exit 0"
   },
   "dependencies": {
-    "phaser": "^3.70.0"
+    "phaser": "^3.90.0"
   },
   "devDependencies": {
     "@playwright/test": "^1.48.0",

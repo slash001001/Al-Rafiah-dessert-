@@ -1,3 +1,4 @@
+import Phaser from 'phaser';
 import { VehicleController, CAR_CONSTANTS, sampleSlope } from '../systems/physics.js';
 import { createDustSystem, createBoostBurst, createConfettiSystem, createSandstormOverlay } from '../systems/particles.js';
 import { AudioManager } from '../systems/audio.js';

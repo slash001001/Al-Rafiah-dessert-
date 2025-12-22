@@ -1,3 +1,5 @@
+import Phaser from 'phaser';
+
 const AUDIO_KEYS = [
   'engine_idle',
   'engine_rev',
