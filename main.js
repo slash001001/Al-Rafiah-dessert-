@@ -152,6 +152,7 @@ class PlayScene extends Phaser.Scene {
     this.muted = readMute();
     this.paused = false;
     this.finished = false;
+    this.trail = null;
   }
 
   preload() {
@@ -266,13 +267,12 @@ class PlayScene extends Phaser.Scene {
   }
 
   createParticles() {
-    this.particles = this.add.particles('sand-dust');
-    this.trail = this.particles.createEmitter({
+    this.trail = this.add.particles(this.player.x, this.player.y, 'sand-dust', {
       speed: { min: 10, max: 40 },
       lifespan: { min: 180, max: 320 },
       alpha: { start: 0.6, end: 0 },
       scale: { start: 1, end: 0 },
-      quantity: 0,
+      quantity: 2,
       follow: this.player,
       followOffset: { x: -20, y: 8 }
     });
