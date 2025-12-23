@@ -9,15 +9,19 @@
       html, body {
         height: 100%;
         margin: 0;
-        background: #0d0d0d;
+        background: #0b0f14;
         color: #f0f0f0;
         font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+        display: flex;
+        align-items: center;
+        justify-content: center;
       }
       canvas {
         display: block;
-        margin: 0 auto;
         image-rendering: pixelated;
         touch-action: none;
+        max-width: 100vw;
+        max-height: 100vh;
       }
       noscript {
         position: fixed;

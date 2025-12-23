@@ -25,7 +25,7 @@ const PHYS = {
 const COLORS = {
   sand: 0xf2d7a6,
   dune: 0xe4c48e,
-  sky: 0x0f1720,
+  sky: 0x0b0f14,
   accent: 0x2e86ab,
   text: '#0f1720'
 };
@@ -107,11 +107,16 @@ class MenuScene extends Phaser.Scene {
 
     const startText = this.makeButton(width / 2, height / 2 + 30, '▶ Start', () => {
       playBeep(520, 0.08, readMute());
-      this.scene.start('PlayScene');
+      this.cameras.main.fadeOut(180, 0, 0, 0);
+      this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
+        this.scene.start('PlayScene');
+      });
     });
 
     this.input.keyboard.once('keydown-SPACE', () => startText.emit('pointerdown'));
     this.input.keyboard.once('keydown-ENTER', () => startText.emit('pointerdown'));
+
+    this.cameras.main.fadeIn(180, 0, 0, 0);
   }
 
   addGradientBG() {
@@ -132,6 +137,8 @@ class MenuScene extends Phaser.Scene {
       padding: { x: 18, y: 12 }
     }).setOrigin(0.5).setInteractive({ useHandCursor: true });
     btn.on('pointerdown', handler);
+    btn.on('pointerover', () => btn.setScale(1.05));
+    btn.on('pointerout', () => btn.setScale(1));
     return btn;
   }
 }
@@ -153,6 +160,8 @@ class PlayScene extends Phaser.Scene {
     this.paused = false;
     this.finished = false;
     this.trail = null;
+    this.trailTimer = 0;
+    this.trailGroup = null;
   }
 
   preload() {
@@ -161,18 +170,45 @@ class PlayScene extends Phaser.Scene {
 
   generateTextures() {
     const g = this.make.graphics({ add: false });
+    // sand tile
+    g.fillStyle(COLORS.sand, 1);
+    g.fillRect(0, 0, 64, 64);
+    g.lineStyle(2, 0xe9c792, 0.4);
+    for (let i = 0; i < 12; i += 1) {
+      const x = Phaser.Math.Between(0, 64);
+      const y = Phaser.Math.Between(0, 64);
+      g.strokeCircle(x, y, Phaser.Math.Between(1, 3));
+    }
+    g.generateTexture('sand-tile', 64, 64);
+    g.clear();
+    // dune ridge
+    g.lineStyle(3, COLORS.dune, 0.5);
+    for (let x = 0; x < 256; x += 12) {
+      const y = 60 + Math.sin(x * 0.12) * 12;
+      g.lineBetween(x, y, x + 12, 60 + Math.sin((x + 12) * 0.12) * 12);
+    }
+    g.generateTexture('dune-ridge', 256, 128);
+    g.clear();
+    // player body and shadow
+    g.fillStyle(0x000000, 0.35);
+    g.fillRoundedRect(4, 4, 40, 20, 6);
+    g.generateTexture('player-shadow', 48, 28);
+    g.clear();
     g.fillStyle(COLORS.accent, 1);
     g.fillRoundedRect(0, 0, 48, 28, 6);
     g.generateTexture('player-body', 48, 28);
     g.clear();
+    // rock blob
     g.fillStyle(0x996633, 1);
     g.fillCircle(0, 0, 10);
     g.generateTexture('rock', 20, 20);
     g.clear();
+    // puff
     g.fillStyle(0xffffff, 1);
     g.fillCircle(4, 4, 4);
     g.generateTexture('sand-dust', 8, 8);
     g.clear();
+    // finish bar
     g.fillStyle(0xf4c27a, 1);
     g.fillRect(0, 0, 120, 12);
     g.generateTexture('finish', 120, 12);
@@ -221,7 +257,7 @@ class PlayScene extends Phaser.Scene {
 
     this.cameras.main.setBounds(0, 0, WORLD.width, WORLD.height);
     this.cameras.main.startFollow(this.player, true, 0.12, 0.12);
-    this.cameras.main.setDeadzone(width * 0.2, height * 0.2);
+    this.cameras.main.setDeadzone(220, 140);
     this.cameras.main.setFollowOffset(0, -40);
 
     this.createHUD();
@@ -238,12 +274,10 @@ class PlayScene extends Phaser.Scene {
 
   createBackground() {
     const { width, height } = this.scale;
-    const sky = this.add.rectangle(0, 0, WORLD.width, WORLD.height, COLORS.sky).setOrigin(0, 0);
-    sky.setScrollFactor(0);
-    this.back1 = this.add.tileSprite(0, height * 0.25, WORLD.width, 180, 'para-far').setOrigin(0, 0.5);
-    this.back1.setScrollFactor(0.2);
-    this.back2 = this.add.tileSprite(0, height * 0.55, WORLD.width, 200, 'para-mid').setOrigin(0, 0.5);
-    this.back2.setScrollFactor(0.4);
+    this.add.rectangle(0, 0, width, height, COLORS.sky).setOrigin(0, 0).setScrollFactor(0);
+    this.back1 = this.add.tileSprite(0, 0, width, height, 'para-far').setOrigin(0, 0).setScrollFactor(0);
+    this.back2 = this.add.tileSprite(0, 0, width, height, 'para-mid').setOrigin(0, 0).setScrollFactor(0);
+    this.sand = this.add.tileSprite(0, height * 0.55, width, height * 0.45, 'sand-tile').setOrigin(0, 0).setScrollFactor(0);
   }
 
   createObstacles() {
@@ -267,18 +301,13 @@ class PlayScene extends Phaser.Scene {
   }
 
   createParticles() {
-    this.trail = this.add.particles(this.player.x, this.player.y, 'sand-dust', {
-      speed: { min: 10, max: 40 },
-      lifespan: { min: 180, max: 320 },
-      alpha: { start: 0.6, end: 0 },
-      scale: { start: 1, end: 0 },
-      quantity: 2,
-      follow: this.player,
-      followOffset: { x: -20, y: 8 }
-    });
+    this.trailGroup = this.add.group();
   }
 
   createHUD() {
+    const panel = this.add.graphics().setScrollFactor(0).setDepth(5);
+    panel.fillStyle(0x0b0f14, 0.75);
+    panel.fillRoundedRect(10, 10, 320, 120, 12);
     this.hud.speed = this.add.text(18, 16, 'Speed: 0', this.hudStyle()).setScrollFactor(0);
     this.hud.dist = this.add.text(18, 46, 'Distance: 0', this.hudStyle()).setScrollFactor(0);
     this.hud.timer = this.add.text(18, 76, 'Time: 0.00', this.hudStyle()).setScrollFactor(0);
@@ -314,6 +343,8 @@ class PlayScene extends Phaser.Scene {
       padding: { x: 14, y: 10 }
     }).setOrigin(0.5).setScrollFactor(0).setInteractive({ useHandCursor: true });
     btn.on('pointerdown', handler);
+    btn.on('pointerover', () => btn.setScale(1.05));
+    btn.on('pointerout', () => btn.setScale(1));
     return btn;
   }
 
@@ -346,7 +377,7 @@ class PlayScene extends Phaser.Scene {
   onHitObstacle(rock) {
     this.speed *= 0.5;
     this.cameras.main.shake(120, 0.003);
-    this.trail.explode(12, rock.x, rock.y);
+    this.spawnPuff(rock.x, rock.y, 1.2);
     playBeep(260, 0.08, this.muted);
   }
 
@@ -379,8 +410,9 @@ class PlayScene extends Phaser.Scene {
 
     this.updateBoost(dt, boostRequest);
     this.applyDriving(throttle, brake, left, right, dt);
-    this.updateCameraParallax();
+    this.updateCameraParallax(dt);
     this.updateHUD();
+    this.updateTrail(dt);
     if (this.player.x >= this.finishX - 40) {
       this.handleFinish();
     }
@@ -426,14 +458,14 @@ class PlayScene extends Phaser.Scene {
     this.player.body.velocity.y = vy;
     this.player.rotation = this.angle;
 
-    this.trail.setQuantity(Phaser.Math.Clamp(speedNorm * 12, 2, 14));
     this.cameras.main.setFollowOffset(0, -40 + wave * 20);
   }
 
-  updateCameraParallax() {
-    const cam = this.cameras.main;
-    this.back1.tilePositionX = cam.scrollX * 0.3;
-    this.back2.tilePositionX = cam.scrollX * 0.6;
+  updateCameraParallax(dt) {
+    const rate = dt || (1 / 60);
+    this.back1.tilePositionX += (this.speed * 0.08) * rate;
+    this.back2.tilePositionX += (this.speed * 0.12) * rate;
+    this.sand.tilePositionX += (this.speed * 0.18) * rate;
   }
 
   updateHUD() {
@@ -443,6 +475,29 @@ class PlayScene extends Phaser.Scene {
     this.hud.dist.setText(`Distance: ${Math.round(distLeft)}m`);
     this.hud.timer.setText(`Time: ${this.timer.elapsed.toFixed(2)}s`);
     this.hud.best.setText(`Best: ${this.timer.best ? this.timer.best.toFixed(2) : '--'}`);
+  }
+
+  updateTrail(dt) {
+    this.trailTimer -= dt;
+    if (this.trailTimer <= 0 && this.speed > 30) {
+      this.trailTimer = 0.05;
+      const offsetX = -Math.cos(this.angle) * 24;
+      const offsetY = -Math.sin(this.angle) * 24 + 6;
+      this.spawnPuff(this.player.x + offsetX, this.player.y + offsetY, Phaser.Math.FloatBetween(0.9, 1.3));
+    }
+  }
+
+  spawnPuff(x, y, scale) {
+    const puff = this.add.image(x, y, 'sand-dust').setScale(scale).setAlpha(0.7);
+    this.trailGroup.add(puff);
+    this.tweens.add({
+      targets: puff,
+      alpha: 0,
+      scale: scale * 1.8,
+      duration: 320,
+      ease: 'Sine.easeOut',
+      onComplete: () => puff.destroy()
+    });
   }
 }
 
@@ -460,7 +515,7 @@ class WinScene extends Phaser.Scene {
     const { width, height } = this.scale;
     this.cameras.main.setBackgroundColor(COLORS.sky);
     this.cameras.main.fadeIn(200, 0, 0, 0);
-    this.add.text(width / 2, height / 2 - 100, 'You Conquered the Dunes!', {
+    const title = this.add.text(width / 2, height / 2 - 100, 'You Conquered the Dunes!', {
       fontSize: 42,
       fontFamily: 'system-ui, sans-serif',
       color: '#f4c27a'
@@ -481,6 +536,22 @@ class WinScene extends Phaser.Scene {
     const restart = this.makeButton(width / 2, height / 2 + 90, '↻ Restart', () => this.scene.start('MenuScene'));
     this.input.keyboard.once('keydown-SPACE', () => restart.emit('pointerdown'));
     this.input.keyboard.once('keydown-ENTER', () => restart.emit('pointerdown'));
+
+    // sparkles
+    for (let i = 0; i < 20; i += 1) {
+      const dx = Phaser.Math.Between(-140, 140);
+      const dy = Phaser.Math.Between(-20, 40);
+      const puff = this.add.circle(title.x + dx, title.y + dy, Phaser.Math.Between(2, 4), 0xf4c27a, 0.9);
+      this.tweens.add({
+        targets: puff,
+        alpha: 0,
+        scale: 1.8,
+        duration: Phaser.Math.Between(300, 600),
+        ease: 'Sine.easeOut',
+        delay: Phaser.Math.Between(0, 200),
+        onComplete: () => puff.destroy()
+      });
+    }
   }
 
   makeButton(x, y, label, handler) {
@@ -492,16 +563,22 @@ class WinScene extends Phaser.Scene {
       padding: { x: 16, y: 12 }
     }).setOrigin(0.5).setInteractive({ useHandCursor: true });
     btn.on('pointerdown', handler);
+    btn.on('pointerover', () => btn.setScale(1.05));
+    btn.on('pointerout', () => btn.setScale(1));
     return btn;
   }
 }
 
 const config = {
   type: Phaser.AUTO,
-  width: 1024,
-  height: 576,
   backgroundColor: COLORS.sky,
   parent: document.body,
+  scale: {
+    mode: Phaser.Scale.FIT,
+    autoCenter: Phaser.Scale.CENTER_BOTH,
+    width: 1024,
+    height: 576
+  },
   physics: {
     default: 'arcade',
     arcade: {
