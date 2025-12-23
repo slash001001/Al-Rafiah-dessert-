@@ -20,7 +20,8 @@ async function main() {
     ...Array.from(doc.querySelectorAll('link[rel="stylesheet"]')).map(l => l.getAttribute('href')).filter(Boolean)
   ];
   for (const asset of assets) {
-    const url = asset!.startsWith('http') ? asset! : new URL(asset!, BASE).href;
+    if (!asset) continue;
+    const url = asset.startsWith('http') ? asset : new URL(asset, BASE).href;
     const r = await head(url);
     console.log(`${r.status} ${url}`);
     if (!r.ok) process.exit(1);
