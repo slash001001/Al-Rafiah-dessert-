@@ -24,6 +24,9 @@ async function main() {
   console.log(`Root: ${root.status}`);
   if (!root.ok) return;
   const assets = extractAssets(root.text);
+  if (assets.length === 0) {
+    console.log('No assets detected in root HTML.');
+  }
   for (const asset of assets) {
     const url = asset.startsWith('http') ? asset : new URL(asset, BASE).href;
     const res = await fetchHead(url);

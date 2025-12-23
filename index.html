@@ -51,6 +51,20 @@
   <body>
     <noscript>يجب تفعيل الجافاسكربت لتجربة مغامرة الطعوس.</noscript>
     <div id="rafiah-debug" hidden></div>
+    <script>
+      (() => {
+        const box = document.getElementById('rafiah-debug');
+        function log(label, data) {
+          console.error(label, data);
+          if (!box) return;
+          box.hidden = false;
+          box.append(`${label}: ${data}\n`);
+          box.scrollTop = box.scrollHeight;
+        }
+        window.addEventListener('error', ev => log('window.error', ev.message || ev.type));
+        window.addEventListener('unhandledrejection', ev => log('unhandledrejection', ev.reason || ev));
+      })();
+    </script>
     <script type="module" src="./main.js?v=20241202"></script>
   </body>
 </html>
