@@ -1,33 +1,8 @@
 import { defineConfig } from 'vite';
 
-export default defineConfig({
-  // Use repo subpath for GitHub Pages
-  base: '/Al-Rafiah-dessert-/',
-  root: '.',
-  publicDir: 'public',
+export default defineConfig(({ command }) => ({
+  base: command === 'build' ? '/Al-Rafiah-dessert-/' : '/',
   server: {
-    port: 5173,
-    open: '/index.html',
-  },
-  build: {
-    // Transpile to support older Safari (13) that lacks optional chaining/nullish coalescing
-    target: ['es2018', 'safari13'],
-    outDir: 'dist',
-    emptyOutDir: true,
-    chunkSizeWarningLimit: 2000,
-    rollupOptions: {
-      output: {
-        manualChunks: {
-          phaser: ['phaser']
-        }
-      }
-    },
-  },
-  resolve: {
-    alias: {
-      '@levels': '/levels',
-      '@game': '/game',
-      '@src': '/src',
-    },
-  },
-});
+    open: true
+  }
+}));
