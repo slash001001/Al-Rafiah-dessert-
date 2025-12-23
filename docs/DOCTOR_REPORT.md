@@ -24,9 +24,9 @@
 - `npm run test` (12/12 passed)
 - `npm run build` (clean)
 - `npm run preview` (200 at /Al-Rafiah-dessert-/)
-- `node tools/pages_healthcheck.mjs` (root 200; previously no assets detected — workflow deploy will align hosted content)
+- `node tools/pages_healthcheck.mjs` after workflow deploy: root 200 + assets 200 (`assets/index-V6-a9wqk.js`)
 
 ## Deployment
-- `npm run build && npx gh-pages -d dist -b gh-pages` (manual) **and** added GitHub Actions deploy to Pages.
+- `npm run build && npx gh-pages -d dist -b gh-pages` (manual) and GitHub Actions deploy via `.github/workflows/deploy.yml`.
 - Commit: latest on `main` (see git log)
 - Remote: git@github.com:slash001001/Al-Rafiah-dessert-.git
