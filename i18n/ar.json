@@ -1,34 +1,0 @@
-{
-  "menu.start": "ابدأ الطعيس",
-  "menu.resume": "استمرار",
-  "menu.restart": "إعادة",
-  "menu.settings": "الإعدادات",
-  "menu.mode.familySafe": "وضع آمن",
-  "menu.mode.arcade": "وضع أركيد",
-  "menu.language": "English",
-  "hud.speed": "السرعة",
-  "hud.score": "النقاط",
-  "hud.combo": "كومبو",
-  "hud.nitro": "نايترو",
-  "hud.kettle": "دلة",
-  "toast.kettle": "انكب الشاي 😅",
-  "toast.food.shalimar": "شاليمار — شاورما على الصاج",
-  "toast.food.albaik": "البيك قدّام!",
-  "toast.food.zad": "زاد السلطان",
-  "toast.checkpoint": "تم الحفظ",
-  "toast.sandstorm": "عاصفة رملية!",
-  "toast.stormClear": "صفاء الجو",
-  "toast.unlock.prado": "براودو متوفر!",
-  "finish.text": "وين الملح؟",
-  "finish.rank": "تصنيفك: {rank}",
-  "sign.rafiah12": "الرافعية ← 12 كم",
-  "sign.sand_warning": "انتبه: رمل متحرك",
-  "sign.no_drifting": "ممنوع التفحيط 😅",
-  "sign.albaik": "البيك ⟶",
-  "sign.shalimar": "شاليمار ⟶",
-  "sign.zad": "زاد السلطان ⟶",
-  "ui.mute": "كتم الصوت",
-  "ui.unmute": "تشغيل الصوت",
-  "ui.reducedMotion": "حركة أقل",
-  "ui.close": "إغلاق"
-}
