@@ -4,8 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
+    "dev": "vite --open index-dev.html --host",
+    "build": "tsc -b && vite build && cp dist/index-dev.html dist/index.html",
     "preview": "vite preview",
     "deploy": "npm run build && gh-pages -d dist -b gh-pages"
   },
