@@ -34,11 +34,12 @@ export default class CampScene extends Phaser.Scene {
       .setStrokeStyle(2, data.result === 'win' ? 0x4ade80 : 0xf87171);
 
     const title = data.result === 'win' ? 'وصلنا قبل الغروب ✅' : 'غابت الشمس قبل لا نوصل 🌅💀';
-    this.add.text(width / 2, height / 2 - 180, title, {
+    const header = this.add.text(width / 2, height / 2 - 180, title, {
       fontSize: '26px',
       color: data.result === 'win' ? '#86efac' : '#fca5a5',
       fontFamily: 'system-ui'
     }).setOrigin(0.5);
+    this.stamp(header, data.result === 'win' ? '✅ ضبطت' : '🌅 راحت علينا');
 
     const collectedSet = new Set<ItemKey>(data.collected || []);
     const missing = getMissingEssentials(collectedSet);
@@ -109,6 +110,18 @@ export default class CampScene extends Phaser.Scene {
     const success = jokes.pickRare(chance);
     if (!collected.has('salt')) return jokes.pick('forgot_salt', 3, 'بدون ملح؟ الطبخة راحت');
     return success ? jokes.pick('cooking_success', 2, 'الطبخة: ضبطت') : jokes.pick('cooking_fail', 2, 'الطبخة خربت');
+  }
+
+  private stamp(target: Phaser.GameObjects.Text, label: string) {
+    const s = this.add.text(target.x, target.y - 50, label, {
+      fontSize: '24px',
+      color: '#fcd34d',
+      fontFamily: 'system-ui',
+      backgroundColor: '#1f2937',
+      padding: { x: 10, y: 6 }
+    }).setOrigin(0.5);
+    s.setScale(0.1);
+    this.tweens.add({ targets: s, scale: 1, duration: 180, ease: 'Back.Out' });
   }
 
   private makeButton(x: number, y: number, label: string, cb: () => void) {

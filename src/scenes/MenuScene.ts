@@ -2,18 +2,33 @@ import Phaser from 'phaser';
 import { setOverlayStatus } from '../ui/overlay';
 import { inc } from '../systems/persist';
 import { isMuted, toggleMute, beep } from '../ui/Sfx';
+import { ensureProceduralArt } from '../visual/Procedural';
+import { ArtKeys } from '../visual/ArtKeys';
+import { JokeEngine } from '../systems/JokeEngine';
+import { hashStringToSeed, mulberry32 } from '../systems/rng';
+import { Feel } from '../systems/Feel';
 
 type Vehicle = 'gmc' | 'prado';
 
 export default class MenuScene extends Phaser.Scene {
   private selected: Vehicle = 'gmc';
   private muteLabel!: Phaser.GameObjects.Text;
+  private dunes!: Phaser.GameObjects.TileSprite[];
+  private tips: string[] = [];
+  private tipIndex = 0;
 
   constructor() {
     super('MenuScene');
   }
 
   create() {
+    ensureProceduralArt(this);
+    const { width: wbg, height: hbg } = this.scale;
+    const sky = this.add.tileSprite(wbg / 2, hbg / 2, wbg, hbg, ArtKeys.SKY_GRAD).setScrollFactor(0);
+    const l3 = this.add.tileSprite(wbg / 2, hbg / 2 + 60, wbg, hbg, ArtKeys.DUNE_L3).setScrollFactor(0);
+    const l2 = this.add.tileSprite(wbg / 2, hbg / 2 + 30, wbg, hbg, ArtKeys.DUNE_L2).setScrollFactor(0);
+    const l1 = this.add.tileSprite(wbg / 2, hbg / 2, wbg, hbg, ArtKeys.DUNE_L1).setScrollFactor(0);
+    this.dunes = [l3, l2, l1];
     const { width, height } = this.scale;
     this.cameras.main.setBackgroundColor('#0b0f14');
     this.cameras.main.fadeIn(200, 0, 0, 0);
@@ -60,6 +75,20 @@ export default class MenuScene extends Phaser.Scene {
       this.muteLabel.setText(this.muteText());
       beep('ui');
     });
+
+    const seed = hashStringToSeed(`${Date.now()}-${Math.random()}`);
+    const jokes = new JokeEngine(seed);
+    jokes.setContext({ place: 'الرافعية' });
+    this.tips = [
+      jokes.pick('plan_failed_generic', 1, 'خطتنا بسيطة: نضحك ونمشي'),
+      jokes.pick('hint_missing_essential', 1, 'تذكر الأساسيات قبل الطعس'),
+      jokes.pick('forgot_salt', 1, 'الملح أهم من البنزين')
+    ];
+    this.add.text(width / 2, height - 70, this.tips[this.tipIndex], {
+      fontSize: '14px',
+      color: '#cbd5e1',
+      fontFamily: 'system-ui'
+    }).setOrigin(0.5);
   }
 
   private muteText() {
@@ -94,6 +123,7 @@ export default class MenuScene extends Phaser.Scene {
     btn.setInteractive({ useHandCursor: true });
     btn.on('pointerdown', () => {
       beep('ui');
+      Feel.pop(this, btn);
       cb();
     });
     btn.on('pointerover', () => btn.setScale(1.05));
@@ -111,9 +141,17 @@ export default class MenuScene extends Phaser.Scene {
 
   private startRun() {
     inc('rafiah_runs', 1);
+    this.tipIndex = (this.tipIndex + 1) % this.tips.length;
     this.cameras.main.fadeOut(200, 0, 0, 0);
     this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
       this.scene.start('RunScene', { vehicle: this.selected });
+    });
+  }
+
+  update(_time: number, dtMs: number) {
+    const dt = dtMs / 1000;
+    this.dunes?.forEach((d, i) => {
+      d.tilePositionX += (i + 1) * 12 * dt;
     });
   }
 }

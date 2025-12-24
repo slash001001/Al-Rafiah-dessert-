@@ -3,6 +3,8 @@ import { ItemKey, itemMeta, essentials, getMissingEssentials } from '../data/ite
 import { ensureProceduralArt } from '../visual/Procedural';
 import { preloadExternalAssets } from '../visual/ExternalAssets';
 import { ArtKeys } from '../visual/ArtKeys';
+import { Feel } from '../systems/Feel';
+import { PauseMenu } from '../ui/PauseMenu';
 import { ChaosDirector, ChaosEvent, ChaosKey } from '../systems/ChaosDirector';
 import { mulberry32, hashStringToSeed, randInt, choice } from '../systems/rng';
 import { JokeEngine } from '../systems/JokeEngine';
@@ -75,6 +77,11 @@ export default class RunScene extends Phaser.Scene {
   private funniestKey: ChaosKey | null = null;
   private funnies: string[] = [];
   private joke!: JokeEngine;
+  private isPaused = false;
+  private pauseMenu!: PauseMenu;
+  private freezeUntil = 0;
+  private speedLines!: Phaser.GameObjects.Graphics;
+  private timePulseStarted = false;
 
   constructor() {
     super('RunScene');
@@ -121,6 +128,13 @@ export default class RunScene extends Phaser.Scene {
     this.createHUD();
     this.createTrailTimer();
     this.joke.setContext({ veh: this.vehicle, place: 'الرافعية', runCount: getNumber('rafiah_runs', 1) });
+    this.speedLines = this.add.graphics().setDepth(5).setScrollFactor(0).setAlpha(0);
+    this.pauseMenu = new PauseMenu(
+      this,
+      () => (this.isPaused = false),
+      () => this.scene.restart({ vehicle: this.vehicle }),
+      () => this.scene.start('MenuScene')
+    );
 
     const keyboard = this.input.keyboard!;
     this.cursors = keyboard.createCursorKeys();
@@ -136,6 +150,10 @@ export default class RunScene extends Phaser.Scene {
     this.cameras.main.startFollow(this.player, true, 0.12, 0.12);
     this.cameras.main.setDeadzone(240, 160);
     this.cameras.main.setBounds(0, 0, this.worldWidth, this.worldHeight);
+    this.input.keyboard?.on('keydown-ESC', () => {
+      this.isPaused = !this.isPaused;
+      this.pauseMenu[this.isPaused ? 'show' : 'hide']();
+    });
 
     this.time.addEvent({
       delay: 1000,
@@ -282,21 +300,25 @@ export default class RunScene extends Phaser.Scene {
       delay: 60,
       loop: true,
       callback: () => {
-        if (!this.player || this.isFinished || this.speed < 40) return;
-        const puff = this.add.image(
-          this.player.x - Math.cos(this.angle) * 18,
-          this.player.y - Math.sin(this.angle) * 18,
-          'puff'
-        )
-          .setAlpha(0.8)
-          .setDepth(1);
-        this.tweens.add({
-          targets: puff,
-          alpha: 0,
-          scale: 1.8,
-          duration: 520,
-          onComplete: () => puff.destroy()
-        });
+    if (!this.player || this.isFinished || this.speed < 40) return;
+    const mult = this.keys.SPACE.isDown ? 1.6 : 1;
+    for (let i = 0; i < mult; i++) {
+      const puff = this.add.image(
+        this.player.x - Math.cos(this.angle) * (16 + i * 4),
+        this.player.y - Math.sin(this.angle) * (16 + i * 4),
+        ArtKeys.PUFF
+      )
+        .setAlpha(0.8)
+        .setDepth(1)
+        .setScale(1 + (mult - 1) * 0.2);
+      this.tweens.add({
+        targets: puff,
+        alpha: 0,
+        scale: 1.8,
+        duration: 420,
+        onComplete: () => puff.destroy()
+      });
+    }
       }
     });
   }
@@ -422,12 +444,13 @@ export default class RunScene extends Phaser.Scene {
         break;
       case 'camel':
         this.toast.show(this.joke.pick('event_camel', intensity, 'جمل يقطع الطريق'));
-        this.spawnCamel();
-        break;
-      case 'dogs':
-        this.toast.show(this.joke.pick('event_dogs_safe', intensity, 'زمّر لهم'));
-        this.spawnDogs();
-        break;
+      this.spawnCamel();
+      Feel.shake(this, 100, 0.003);
+      break;
+    case 'dogs':
+      this.toast.show(this.joke.pick('event_dogs_safe', intensity, 'زمّر لهم'));
+      this.spawnDogs();
+      break;
     }
 
     if (ev.key === 'stuck') inc('rafiah_total_stucks', 1);
@@ -530,6 +553,8 @@ export default class RunScene extends Phaser.Scene {
         dog.setFillStyle(0x22c55e);
         body.setVelocity(180, Phaser.Math.Between(-60, 60));
         this.pushFunny('كلب طق جونا وهرب');
+        Feel.hitStop(this, 50);
+        Feel.shake(this, 80, 0.002);
       });
     }
   }
@@ -567,6 +592,8 @@ export default class RunScene extends Phaser.Scene {
 
   update(_time: number, delta: number) {
     if (this.isFinished) return;
+    if (this.freezeUntil && this.time.now < this.freezeUntil) return;
+    if (this.isPaused) return;
     const dt = delta / 1000;
     this.elapsed += dt;
     this.handleDrive(dt);
@@ -586,6 +613,25 @@ export default class RunScene extends Phaser.Scene {
       const ev = this.director.update(this.elapsed);
       if (ev) this.startEvent(ev);
     }
+  }
+
+  private drawSpeedLines(active: boolean) {
+    this.speedLines.clear();
+    if (!active) return;
+    const { width, height } = this.scale;
+    this.speedLines.lineStyle(2, 0xffffff, 0.2);
+    for (let i = 0; i < 6; i++) {
+      const x = (width / 6) * i + 20;
+      this.speedLines.beginPath();
+      this.speedLines.moveTo(x, height / 2 - 40);
+      this.speedLines.lineTo(x + 20, height / 2 - 10);
+      this.speedLines.strokePath();
+    }
+    this.speedLines.setAlpha(0.35);
+  }
+
+  private nitroZoom() {
+    this.tweens.add({ targets: this.cameras.main, zoom: 1.03, duration: 120, yoyo: true, ease: 'Quad.easeOut' });
   }
 
   private pushFunny(line: string) {
@@ -615,21 +661,24 @@ export default class RunScene extends Phaser.Scene {
     if (nitroPressed) accel *= 1.25;
     this.speed += accel * dt;
 
-    const drag = stats.drag + (this.fuel <= 0 ? 260 : 0);
+    const dynamicDrag = stats.drag + this.speed * 0.12 + (this.fuel <= 0 ? 260 : 0);
     const max = this.fuel <= 0 ? stats.max * 0.35 : stats.max * this.maxSpeedMul;
-    this.speed -= this.speed * drag * 0.0015 * dt;
+    this.speed -= this.speed * dynamicDrag * 0.0012 * dt;
     this.speed = Phaser.Math.Clamp(this.speed, 0, max);
 
     if (nitroPressed) {
       this.fuel -= stats.fuelUse * 2.5 * dt;
       this.nitroCooldown = 2;
       this.toastNitro();
+      this.nitroZoom();
+      this.drawSpeedLines(true);
       if (this.activeKey === 'stuck') {
         this.fuel = Math.max(0, this.fuel - 4);
         this.endEvent();
         beep('hit');
       }
     } else {
+      this.drawSpeedLines(false);
       this.fuel -= stats.fuelUse * (forward ? 1.2 : 0.4) * dt;
       this.nitroCooldown = Math.max(0, this.nitroCooldown - dt);
     }
@@ -642,7 +691,7 @@ export default class RunScene extends Phaser.Scene {
     let turn = 0;
     if (left) turn -= 1;
     if (right) turn += 1;
-    const turnRate = (0.8 + this.speed / (max || 1)) * 1.2 * this.steerMul;
+    const turnRate = (0.7 + this.speed / (max || 1)) * 1.15 * this.steerMul;
     this.angle += turn * turnRate * dt;
 
     const vx = Math.cos(this.angle) * this.speed;
@@ -665,6 +714,17 @@ export default class RunScene extends Phaser.Scene {
     this.hudTime.setText(`الغروب: ${mins}:${secs.toString().padStart(2, '0')}`);
     const missing = getMissingEssentials(this.collected);
     this.hudItems.setText(`الأغراض: ${missing.length ? 'ناقص ' + missing.length : 'كامل'}`);
+    if (!this.timePulseStarted && this.timeLeft <= 30) {
+      this.timePulseStarted = true;
+      this.tweens.add({
+        targets: this.hudTime,
+        scale: 1.15,
+        yoyo: true,
+        repeat: -1,
+        duration: 320
+      });
+      this.toast.show('الشمس قربت… شد!');
+    }
   }
 
   private updateBackground(dt: number) {
