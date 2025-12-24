@@ -3,7 +3,7 @@ import { ItemKey, itemMeta, essentials, getMissingEssentials } from '../data/ite
 import { makeCarTextures, makeItemTextures, makePOITextures, makeWorldTextures } from '../visual/Procedural';
 import { ChaosDirector, ChaosEvent, ChaosKey } from '../systems/ChaosDirector';
 import { mulberry32, hashStringToSeed, randInt, choice } from '../systems/rng';
-import { pickJoke, pickRare } from '../systems/JokeEngine';
+import { JokeEngine } from '../systems/JokeEngine';
 import { ToastManager } from '../ui/Toast';
 import { beep } from '../ui/Sfx';
 import { inc, getNumber, setNumber } from '../systems/persist';
@@ -71,6 +71,8 @@ export default class RunScene extends Phaser.Scene {
   private dogs: DogSprite[] = [];
   private eventsTriggered: ChaosKey[] = [];
   private funniestKey: ChaosKey | null = null;
+  private funnies: string[] = [];
+  private joke!: JokeEngine;
 
   constructor() {
     super('RunScene');
@@ -94,6 +96,7 @@ export default class RunScene extends Phaser.Scene {
 
     const seed = this.buildSeed();
     this.rng = mulberry32(seed);
+    this.joke = new JokeEngine(seed);
     this.director.reset(this.rng, RUN_SECONDS);
 
     this.toast = new ToastManager(this);
@@ -117,6 +120,7 @@ export default class RunScene extends Phaser.Scene {
     this.createFinish();
     this.createHUD();
     this.createTrailTimer();
+    this.joke.setContext({ veh: this.vehicle, place: 'الرافعية', runCount: getNumber('rafiah_runs', 1) });
 
     const keyboard = this.input.keyboard!;
     this.cursors = keyboard.createCursorKeys();
@@ -212,7 +216,7 @@ export default class RunScene extends Phaser.Scene {
     poi.sprite.setAlpha(0.35);
     if (poi.type === 'station') {
       this.fuel = 100;
-      this.toast.show(pickJoke(this.rng, 'toast_refuel', 'فللنا تانكي'));
+      this.toast.show(this.joke.pick('toast_refuel', 1, 'فللنا تانكي'));
     } else if (poi.type === 'shop') {
       const missing = getMissingEssentials(this.collected);
       const pick = missing.length ? missing[0] : choice(this.rng, essentials);
@@ -370,15 +374,16 @@ export default class RunScene extends Phaser.Scene {
     const missing = getMissingEssentials(this.collected);
     if (!missing.length) return;
     const key = choice(this.rng, missing);
-    this.toast.show(pickJoke(this.rng, `forgot_${key}`, 'لا تنسى الأساسيات'));
+    this.joke.setContext({ item: itemMeta[key].label });
+    this.toast.show(this.joke.pick('hint_missing_essential', 1, 'لا تنسى الأساسيات'));
   }
 
   private toastFuelEmpty() {
-    this.toast.show(pickJoke(this.rng, 'toast_fuel_empty', 'بنزين خلص… ممتاز'));
+    this.toast.show(this.joke.pick('toast_fuel_empty', 2, 'بنزين خلص… ممتاز'));
   }
 
   private toastNitro() {
-    this.toast.show(pickJoke(this.rng, 'toast_nitro', 'نيترو يحرق البنزين'));
+    this.toast.show(this.joke.pick('toast_nitro', 2, 'نيترو يحرق البنزين'));
   }
 
   private startEvent(ev: ChaosEvent) {
@@ -386,39 +391,41 @@ export default class RunScene extends Phaser.Scene {
     this.activeEndsAt = this.elapsed + ev.dur;
     this.eventsTriggered.push(ev.key);
     this.funniestKey = ev.key;
+    const intensity = this.eventIntensityFromTime();
+    this.joke.setContext({ timeLeftSec: this.timeLeft });
     switch (ev.key) {
       case 'stuck':
         this.tractionMul = 0.35 + ev.intensity * 0.1;
         this.maxSpeedMul = 0.55 + ev.intensity * 0.08;
-        this.toast.show(pickJoke(this.rng, 'event_stuck', 'تغريز'));
+        this.toast.show(this.joke.pick('event_stuck', intensity, 'تغريز'));
         break;
       case 'overheat':
         this.maxSpeedMul = 0.65 + ev.intensity * 0.06;
         this.nitroDisabledUntil = this.activeEndsAt;
-        this.toast.show(pickJoke(this.rng, 'event_overheat', 'حرارة!'));
+        this.toast.show(this.joke.pick('event_overheat', intensity, 'حرارة!'));
         break;
       case 'flat':
         this.maxSpeedMul = 0.7 + ev.intensity * 0.05;
         this.steerMul = 0.7 + ev.intensity * 0.08;
         this.activeEndsAt = this.elapsed + randInt(this.rng, 12, 18);
-        this.toast.show(pickJoke(this.rng, 'event_flat', 'بنشر'));
+        this.toast.show(this.joke.pick('event_flat', intensity, 'بنشر'));
         break;
       case 'rain':
         this.tractionMul = 0.7 + ev.intensity * 0.05;
-        this.toast.show(pickJoke(this.rng, 'event_rain', 'مطر'));
+        this.toast.show(this.joke.pick('event_rain', intensity, 'مطر'));
         this.showRain();
         break;
       case 'helicopter':
-        this.toast.show(pickJoke(this.rng, 'event_helicopter', 'هيلوكبتر'));
+        this.toast.show(this.joke.pick('event_helicopter', intensity, 'هيلوكبتر'));
         this.spawnHelicopter();
         inc('rafiah_helicopter_seen', 1);
         break;
       case 'camel':
-        this.toast.show(pickJoke(this.rng, 'event_camel', 'جمل يقطع الطريق'));
+        this.toast.show(this.joke.pick('event_camel', intensity, 'جمل يقطع الطريق'));
         this.spawnCamel();
         break;
       case 'dogs':
-        this.toast.show(pickJoke(this.rng, 'event_dogs', 'زمّر لهم'));
+        this.toast.show(this.joke.pick('event_dogs_safe', intensity, 'زمّر لهم'));
         this.spawnDogs();
         break;
     }
@@ -427,8 +434,9 @@ export default class RunScene extends Phaser.Scene {
     if (ev.key === 'flat') inc('rafiah_total_flats', 1);
     if (ev.key === 'overheat') inc('rafiah_total_overheats', 1);
 
-    const line = pickJoke(this.rng, `event_${ev.key}`, 'وش السالفة…');
+    const line = this.joke.pick(`event_${ev.key}`, intensity, 'وش السالفة…');
     this.showBanner(this.eventTitle(ev.key), line);
+    this.pushFunny(line);
   }
 
   private endEvent() {
@@ -521,6 +529,7 @@ export default class RunScene extends Phaser.Scene {
         this.speed *= 0.7;
         dog.setFillStyle(0x22c55e);
         body.setVelocity(180, Phaser.Math.Between(-60, 60));
+        this.pushFunny('كلب طق جونا وهرب');
       });
     }
   }
@@ -541,6 +550,16 @@ export default class RunScene extends Phaser.Scene {
   }
 
   private updateHints() {
+    if (this.elapsed > RUN_SECONDS * 0.25 && this.elapsed < RUN_SECONDS * 0.3) {
+      this.toastMissingHints();
+    }
+    if (this.elapsed > RUN_SECONDS * 0.6 && this.elapsed < RUN_SECONDS * 0.65 && !this.collected.has('salt')) {
+      this.joke.setContext({ item: itemMeta.salt.label });
+      this.toast.show(this.joke.pick('forgot_salt', 2, 'الملح ناقص!'));
+    }
+    if (this.elapsed > RUN_SECONDS * 0.85 && getMissingEssentials(this.collected).length >= 2) {
+      this.toast.show(this.joke.pick('plan_failed_generic', 3, 'الخطة فشلت'));
+    }
     if (this.elapsed > RUN_SECONDS * 0.6 && this.elapsed < RUN_SECONDS * 0.65) {
       this.toastMissingHints();
     }
@@ -567,6 +586,18 @@ export default class RunScene extends Phaser.Scene {
       const ev = this.director.update(this.elapsed);
       if (ev) this.startEvent(ev);
     }
+  }
+
+  private pushFunny(line: string) {
+    this.funnies.push(line);
+    if (this.funnies.length > 5) this.funnies.shift();
+  }
+
+  private eventIntensityFromTime() {
+    const pos = this.elapsed / RUN_SECONDS;
+    if (pos < 0.4) return 1;
+    if (pos < 0.75) return 2;
+    return 3;
   }
 
   private handleDrive(dt: number) {
@@ -655,7 +686,7 @@ export default class RunScene extends Phaser.Scene {
     this.isFinished = true;
     if (success) inc('rafiah_wins', 1);
     else inc('rafiah_fails', 1);
-    if (!this.collected.has('salt')) inc('rafiah_forgot_salt', 1);
+    if (!this.collected.has('salt')) inc('rafiah_forgot_salt_count', 1);
     const best = getNumber('rafiah_best_time', Infinity);
     if (success && this.elapsed < best) setNumber('rafiah_best_time', this.elapsed);
     const payload = {
@@ -665,7 +696,8 @@ export default class RunScene extends Phaser.Scene {
       reason,
       timeUsedSeconds: this.elapsed,
       eventsTriggered: this.eventsTriggered,
-      funniestKey: this.funniestKey
+      funniestKey: this.funniestKey,
+      funnies: this.funnies.slice(-3)
     };
     this.cameras.main.fadeOut(220, 0, 0, 0);
     this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {

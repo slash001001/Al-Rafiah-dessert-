@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { ItemKey, essentials, getMissingEssentials } from '../data/items';
-import { pickJoke, pickRare } from '../systems/JokeEngine';
+import { JokeEngine } from '../systems/JokeEngine';
 import { mulberry32, hashStringToSeed } from '../systems/rng';
 import { inc, getNumber, setNumber } from '../systems/persist';
 import { beep } from '../ui/Sfx';
@@ -13,6 +13,7 @@ interface CampData {
   timeUsedSeconds: number;
   eventsTriggered: string[];
   funniestKey?: string | null;
+  funnies?: string[];
 }
 
 export default class CampScene extends Phaser.Scene {
@@ -24,7 +25,10 @@ export default class CampScene extends Phaser.Scene {
     const { width, height } = this.scale;
     this.cameras.main.setBackgroundColor('#0b0f14');
     this.cameras.main.fadeIn(200, 0, 0, 0);
-    const rng = mulberry32(hashStringToSeed(`${Date.now()}-${Math.random()}`));
+    const seed = hashStringToSeed(`${Date.now()}-${Math.random()}`);
+    const rng = mulberry32(seed);
+    const jokes = new JokeEngine(seed);
+    jokes.setContext({ veh: data.vehicle, place: 'الرافعية', timeLeftSec: Math.max(0, 300 - data.timeUsedSeconds) });
 
     const panel = this.add.rectangle(width / 2, height / 2, width * 0.78, height * 0.76, 0x111827, 0.9)
       .setStrokeStyle(2, data.result === 'win' ? 0x4ade80 : 0xf87171);
@@ -40,12 +44,12 @@ export default class CampScene extends Phaser.Scene {
     const missing = getMissingEssentials(collectedSet);
 
     const funniest = data.funniestKey || (data.eventsTriggered && data.eventsTriggered[0]) || 'plan_failed_generic';
-    const funniestLine = pickJoke(rng, `event_${funniest}`, 'الخطة فشلت بس انبسطنا');
-    const planLine = pickJoke(rng, 'plan_failed_generic', 'التخطيط صفر والمتعة عشرة');
-    const aliLine = pickRare(rng, 0.03) ? pickJoke(rng, 'ali_mishari_rare', '') : '';
+    const funniestLine = data.funnies && data.funnies.length ? data.funnies[data.funnies.length - 1] : jokes.pick(`event_${funniest}`, 2, 'الخطة فشلت بس انبسطنا');
+    const planLine = jokes.pick('plan_failed_generic', data.result === 'win' ? 1 : 2, 'التخطيط صفر والمتعة عشرة');
+    const aliLine = jokes.pickRare(0.03) ? jokes.pick('ali_mishari_rare', 1, '') : '';
 
     const forgotLine = this.missingLines(missing);
-    const outcome = this.cookOutcome(rng, collectedSet, missing);
+    const outcome = this.cookOutcome(jokes, collectedSet, missing);
 
     const recapLines = [
       `وش نسيت؟ ${forgotLine}`,
@@ -66,8 +70,9 @@ export default class CampScene extends Phaser.Scene {
 
     this.renderBadges(width, height, missing, data.eventsTriggered);
 
-    const restart = this.makeButton(width / 2, height / 2 + 150, 'طلعنا مرة ثانية', () => this.backMenu());
-    const rerun = this.makeButton(width / 2, height / 2 + 200, 'إعادة نفس الجولة', () => this.restartRun(data.vehicle));
+    const ctas = ['طلعنا مرة ثانية', 'أعد… يمكن تضبط', 'خلاص آخر مرة (كذب)'];
+    const restart = this.makeButton(width / 2, height / 2 + 150, ctas[0], () => this.backMenu());
+    const rerun = this.makeButton(width / 2, height / 2 + 200, ctas[1], () => this.restartRun(data.vehicle));
 
     panel.setDepth(1);
     restart.setDepth(2);
@@ -93,7 +98,7 @@ export default class CampScene extends Phaser.Scene {
     return missing.join(', ');
   }
 
-  private cookOutcome(rng: () => number, collected: Set<ItemKey>, missing: ItemKey[]) {
+  private cookOutcome(jokes: JokeEngine, collected: Set<ItemKey>, missing: ItemKey[]) {
     let chance = 0.2;
     if (collected.has('salt')) chance += 0.25;
     if (collected.has('charcoal')) chance += 0.2;
@@ -101,9 +106,9 @@ export default class CampScene extends Phaser.Scene {
     if (collected.has('water')) chance += 0.15;
     chance += 0.1;
     chance = Math.min(0.95, chance);
-    const success = rng() < chance;
-    if (!collected.has('salt')) return pickJoke(rng, 'forgot_salt', 'بدون ملح؟ الطبخة راحت');
-    return success ? pickJoke(rng, 'cooking_success', 'الطبخة: ضبطت') : pickJoke(rng, 'cooking_fail', 'الطبخة خربت');
+    const success = jokes.pickRare(chance);
+    if (!collected.has('salt')) return jokes.pick('forgot_salt', 3, 'بدون ملح؟ الطبخة راحت');
+    return success ? jokes.pick('cooking_success', 2, 'الطبخة: ضبطت') : jokes.pick('cooking_fail', 2, 'الطبخة خربت');
   }
 
   private makeButton(x: number, y: number, label: string, cb: () => void) {
