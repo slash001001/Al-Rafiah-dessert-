@@ -11,6 +11,7 @@ import { JokeEngine } from '../systems/JokeEngine';
 import { ToastManager } from '../ui/Toast';
 import { beep } from '../ui/Sfx';
 import { inc, getNumber, setNumber } from '../systems/persist';
+import { balance } from '../config/balance';
 
 type Vehicle = 'gmc' | 'prado';
 
@@ -18,7 +19,7 @@ interface RunData {
   vehicle: Vehicle;
 }
 
-const RUN_SECONDS = 220;
+const RUN_SECONDS = balance.RUN_SECONDS;
 
 interface POI {
   sprite: Phaser.GameObjects.Image;
@@ -82,6 +83,7 @@ export default class RunScene extends Phaser.Scene {
   private freezeUntil = 0;
   private speedLines!: Phaser.GameObjects.Graphics;
   private timePulseStarted = false;
+  private buffActiveUntil = 0;
 
   constructor() {
     super('RunScene');
@@ -272,13 +274,43 @@ export default class RunScene extends Phaser.Scene {
       const key = img.getData('itemKey') as ItemKey;
       this.collectItem(key);
       img.disableBody(true, true);
-      this.toast.show('أخذت: ' + itemMeta[key].label);
+      this.toast.show(this.joke.pick('toast_item_pickup', 1, 'أخذنا: ' + itemMeta[key].label).replace('{item}', itemMeta[key].label));
+      this.spawnConfetti(img.x, img.y, key === 'salt');
+      Feel.pop(this, this.player);
+      beep('ui');
     });
+  }
+
+  private spawnConfetti(x: number, y: number, special: boolean) {
+    if (!special) return;
+    for (let i = 0; i < 8; i++) {
+      const sq = this.add.rectangle(x, y, 6, 6, 0xfcd34d).setDepth(5);
+      const ang = Phaser.Math.FloatBetween(0, Math.PI * 2);
+      const dist = Phaser.Math.FloatBetween(20, 60);
+      const tx = x + Math.cos(ang) * dist;
+      const ty = y + Math.sin(ang) * dist;
+      this.tweens.add({
+        targets: sq,
+        x: tx,
+        y: ty,
+        alpha: 0,
+        duration: 420,
+        onComplete: () => sq.destroy()
+      });
+    }
   }
 
   private collectItem(key: ItemKey) {
     this.collected.add(key);
     if (this.hudIcons[key]) this.hudIcons[key].setTint(0xffffff);
+    const missing = getMissingEssentials(this.collected);
+    if (!missing.length && this.buffActiveUntil === 0) {
+      if (this.elapsed <= balance.planReward.earlyEssentialsDeadlineSec) {
+        this.buffActiveUntil = this.elapsed + balance.planReward.buffDurationSec;
+        this.toast.show('ما شاء الله… جاهزين بدري 🔥');
+        beep('win');
+      }
+    }
   }
 
   private createFinish() {
@@ -610,7 +642,11 @@ export default class RunScene extends Phaser.Scene {
       this.endEvent();
     }
     if (!this.activeKey) {
-      const ev = this.director.update(this.elapsed);
+      let ev = this.director.update(this.elapsed);
+      if (this.buffActiveUntil > this.elapsed && ev) {
+        ev = { ...ev, intensity: Math.max(1, (ev.intensity as number) - 1) as 1 | 2 | 3, at: ev.at + 10 };
+      }
+      if (ev && this.blockLatePunish(ev)) ev = null;
       if (ev) this.startEvent(ev);
     }
   }
@@ -646,6 +682,12 @@ export default class RunScene extends Phaser.Scene {
     return 3;
   }
 
+  private blockLatePunish(ev: ChaosEvent) {
+    if (this.timeLeft <= 20 && (ev.key === 'flat' || ev.key === 'overheat')) return true;
+    if (this.fuel <= 15 && ev.key === 'overheat') return true;
+    return false;
+  }
+
   private handleDrive(dt: number) {
     const stats = this.vehicleStats();
     const forward = this.cursors.up?.isDown || this.keys.W.isDown;
@@ -661,8 +703,12 @@ export default class RunScene extends Phaser.Scene {
     if (nitroPressed) accel *= 1.25;
     this.speed += accel * dt;
 
+    const buff = this.buffActiveUntil > this.elapsed;
+    const buffTraction = buff ? balance.planReward.buffTractionMul : 1;
+    const buffMax = buff ? balance.planReward.buffMaxSpeedMul : 1;
+
     const dynamicDrag = stats.drag + this.speed * 0.12 + (this.fuel <= 0 ? 260 : 0);
-    const max = this.fuel <= 0 ? stats.max * 0.35 : stats.max * this.maxSpeedMul;
+    const max = this.fuel <= 0 ? stats.max * 0.35 : stats.max * this.maxSpeedMul * buffMax;
     this.speed -= this.speed * dynamicDrag * 0.0012 * dt;
     this.speed = Phaser.Math.Clamp(this.speed, 0, max);
 
@@ -691,7 +737,7 @@ export default class RunScene extends Phaser.Scene {
     let turn = 0;
     if (left) turn -= 1;
     if (right) turn += 1;
-    const turnRate = (0.7 + this.speed / (max || 1)) * 1.15 * this.steerMul;
+    const turnRate = (0.7 + this.speed / (max || 1)) * 1.15 * this.steerMul * buffTraction;
     this.angle += turn * turnRate * dt;
 
     const vx = Math.cos(this.angle) * this.speed;
