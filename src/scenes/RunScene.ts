@@ -1,6 +1,8 @@
 import Phaser from 'phaser';
 import { ItemKey, itemMeta, essentials, getMissingEssentials } from '../data/items';
-import { makeCarTextures, makeItemTextures, makePOITextures, makeWorldTextures } from '../visual/Procedural';
+import { ensureProceduralArt } from '../visual/Procedural';
+import { preloadExternalAssets } from '../visual/ExternalAssets';
+import { ArtKeys } from '../visual/ArtKeys';
 import { ChaosDirector, ChaosEvent, ChaosKey } from '../systems/ChaosDirector';
 import { mulberry32, hashStringToSeed, randInt, choice } from '../systems/rng';
 import { JokeEngine } from '../systems/JokeEngine';
@@ -83,10 +85,8 @@ export default class RunScene extends Phaser.Scene {
   }
 
   preload() {
-    makeWorldTextures(this);
-    makeCarTextures(this);
-    makeItemTextures(this);
-    makePOITextures(this);
+    preloadExternalAssets(this);
+    ensureProceduralArt(this);
   }
 
   create() {
@@ -102,7 +102,7 @@ export default class RunScene extends Phaser.Scene {
     this.toast = new ToastManager(this);
     this.banner = this.createBanner();
 
-    this.sky = this.add.tileSprite(width / 2, height / 2, width, height, 'sky_grad').setScrollFactor(0);
+    this.sky = this.add.tileSprite(width / 2, height / 2, width, height, ArtKeys.SKY_GRAD).setScrollFactor(0);
     this.createDuneLayers(width, height);
     this.createRoadLayer();
 
@@ -110,8 +110,8 @@ export default class RunScene extends Phaser.Scene {
     const stats = this.vehicleStats();
     const startY = this.worldHeight - 220;
 
-    this.shadow = this.add.image(180, startY, 'car_shadow').setDepth(1);
-    this.player = this.physics.add.image(180, startY, this.vehicle === 'gmc' ? 'car_gmc' : 'car_prado').setDepth(2);
+    this.shadow = this.add.image(180, startY, ArtKeys.VEH_SHADOW).setDepth(1);
+    this.player = this.physics.add.image(180, startY, this.vehicle === 'gmc' ? ArtKeys.VEH_GMC : ArtKeys.VEH_PRADO).setDepth(2);
     this.player.setDamping(true).setDrag(stats.drag).setMaxVelocity(stats.max).setAngularDrag(600);
     this.player.setSize(52, 28).setCollideWorldBounds(true);
 
@@ -167,9 +167,9 @@ export default class RunScene extends Phaser.Scene {
   }
 
   private createDuneLayers(screenW: number, screenH: number) {
-    const l3 = this.add.tileSprite(screenW / 2, screenH / 2 + 60, screenW, screenH, 'dune_layer3').setScrollFactor(0);
-    const l2 = this.add.tileSprite(screenW / 2, screenH / 2 + 30, screenW, screenH, 'dune_layer2').setScrollFactor(0);
-    const l1 = this.add.tileSprite(screenW / 2, screenH / 2, screenW, screenH, 'dune_layer1').setScrollFactor(0);
+    const l3 = this.add.tileSprite(screenW / 2, screenH / 2 + 60, screenW, screenH, ArtKeys.DUNE_L3).setScrollFactor(0);
+    const l2 = this.add.tileSprite(screenW / 2, screenH / 2 + 30, screenW, screenH, ArtKeys.DUNE_L2).setScrollFactor(0);
+    const l1 = this.add.tileSprite(screenW / 2, screenH / 2, screenW, screenH, ArtKeys.DUNE_L1).setScrollFactor(0);
     l3.setTileScale(1.6, 2.2);
     l2.setTileScale(1.4, 2);
     l1.setTileScale(1.2, 1.8);
@@ -183,7 +183,7 @@ export default class RunScene extends Phaser.Scene {
   private createRoadLayer() {
     const roadY = this.worldHeight - 140;
     this.roadLayer = this.add
-      .tileSprite(this.worldWidth / 2, roadY, this.worldWidth, 140, 'road_tile')
+      .tileSprite(this.worldWidth / 2, roadY, this.worldWidth, 140, ArtKeys.ROAD_TILE)
       .setOrigin(0.5, 1)
       .setAlpha(1);
     this.roadLayer.setDepth(1);
@@ -197,7 +197,7 @@ export default class RunScene extends Phaser.Scene {
       { x: 1650, type: 'restaurant', tex: 'poi_restaurant', label: 'مطعم' }
     ];
     data.forEach((d) => {
-      const sprite = this.add.image(d.x, roadY, d.tex).setDepth(2);
+      const sprite = this.add.image(d.x, roadY, d.tex).setDepth(2).setOrigin(0.5, 1);
       this.add.text(d.x, roadY - 80, d.label, {
         fontSize: '18px',
         color: '#e5e7eb',
@@ -267,7 +267,7 @@ export default class RunScene extends Phaser.Scene {
     const zoneX = this.worldWidth - 200;
     const zoneY = 280;
     this.finishZone = this.add.rectangle(zoneX, zoneY, 200, 240, 0x4ade80, 0.12);
-    this.add.image(zoneX, zoneY - 120, 'finish_flag').setDepth(2);
+    this.add.image(zoneX, zoneY - 120, ArtKeys.FINISH_FLAG).setDepth(2);
     this.add.text(zoneX, zoneY + 100, 'قمة الطعس', {
       fontSize: '18px',
       color: '#fef08a',

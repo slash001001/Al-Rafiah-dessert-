@@ -1,0 +1,32 @@
+# Art Spec — Al-Rafiah (Clean Vector Desert)
+
+- Canvas: 960x540 (Scale.FIT, CENTER_BOTH)
+- Layers (back to front):
+  - SKY (static)
+  - DUNE_L3 (far) parallax 0.15
+  - DUNE_L2 (mid) parallax 0.30
+  - DUNE_L1 (near) parallax 0.55
+  - ROAD (road segment only)
+- Palette (flat vector):
+  - Sky top: #0B1B3A
+  - Sky horizon: #F59E0B
+  - Dune far: #F5D18A
+  - Dune mid: #E9B96C
+  - Dune near: #D99B52
+  - Road: #1F2937
+  - UI panel: rgba(0,0,0,0.45)
+  - Text: #FFFFFF / #CBD5E1
+- Asset sizes (px, top-down):
+  - Vehicle sprite: 72x40
+  - Vehicle shadow: 72x24
+  - Helicopter: 96x48
+  - Camel: 80x50
+  - Dog: 28x20
+  - POI signs: 80x80
+  - Item icons: 24x24
+  - Finish flag: 80x80
+- Anchors:
+  - Vehicle origin: (0.5, 0.5)
+  - POI origin: (0.5, 1.0)
+  - Icons: (0.5, 0.5)
+- Style: flat vector, clean shapes, minimal shading, no noisy dithering, high contrast, consistent stroke widths.

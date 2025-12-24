@@ -1,0 +1,23 @@
+export const ArtKeys = {
+  SKY_GRAD: 'sky_grad',
+  DUNE_L1: 'dune_layer1',
+  DUNE_L2: 'dune_layer2',
+  DUNE_L3: 'dune_layer3',
+  ROAD_TILE: 'road_tile',
+  POI_STATION: 'poi_station',
+  POI_SHOP: 'poi_shop',
+  POI_RESTAURANT: 'poi_restaurant',
+  ICON_SALT: 'item_salt',
+  ICON_WATER: 'item_water',
+  ICON_CHARCOAL: 'item_charcoal',
+  ICON_LIGHTER: 'item_lighter',
+  ICON_HUMMUS: 'item_hummus',
+  VEH_GMC: 'car_gmc',
+  VEH_PRADO: 'car_prado',
+  VEH_SHADOW: 'car_shadow',
+  HELICOPTER: 'heli',
+  CAMEL: 'camel',
+  DOG: 'dog',
+  PUFF: 'puff',
+  FINISH_FLAG: 'finish_flag'
+} as const;
