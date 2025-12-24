@@ -1,53 +1,43 @@
-import Phaser from 'phaser';
-import MenuScene from './scenes/MenuScene';
-import RunScene from './scenes/RunScene';
-import CampScene from './scenes/CampScene';
+import Phaser from "phaser";
 
-const overlay = document.getElementById('error-overlay') as HTMLDivElement | null;
-const overlayMessage = (msg: string) => {
-  if (!overlay) return;
-  overlay.style.display = 'block';
-  overlay.textContent = msg;
-};
+class SmokeScene extends Phaser.Scene {
+  constructor() {
+    super("SmokeScene");
+  }
+  create() {
+    const { width, height } = this.scale;
 
-const setupOverlay = () => {
-  if (!overlay) return;
-  overlay.style.display = 'block';
-  overlay.textContent = 'Loading Rafiah… إذا شفت شاشة سودا ارفع الحافظ الله';
-};
+    // Background
+    this.cameras.main.setBackgroundColor(0x0b0f14);
 
-setupOverlay();
+    // Title
+    this.add
+      .text(width / 2, height / 2 - 20, "الرافعية — تشغيل تجريبي", {
+        fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, Arial",
+        fontSize: "32px",
+        color: "#ffffff",
+      })
+      .setOrigin(0.5);
 
-window.addEventListener('error', (e) => {
-  overlayMessage(`window.error: ${e.message || e.error}`);
-});
+    this.add
+      .text(width / 2, height / 2 + 30, "Phaser bundled ✅ | Vite ✅ | GH Pages base ✅", {
+        fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, Arial",
+        fontSize: "16px",
+        color: "#cbd5e1",
+      })
+      .setOrigin(0.5);
+  }
+}
 
-window.addEventListener('unhandledrejection', (e) => {
-  overlayMessage(`promise rejection: ${e.reason}`);
-});
-
-const config: Phaser.Types.Core.GameConfig = {
+new Phaser.Game({
   type: Phaser.AUTO,
-  parent: 'app',
+  parent: "app",
   width: 960,
   height: 540,
-  backgroundColor: '#0b0f14',
+  backgroundColor: "#0b0f14",
+  scene: [SmokeScene],
   scale: {
     mode: Phaser.Scale.FIT,
-    autoCenter: Phaser.Scale.CENTER_BOTH
+    autoCenter: Phaser.Scale.CENTER_BOTH,
   },
-  physics: {
-    default: 'arcade',
-    arcade: {
-      gravity: { x: 0, y: 0 },
-      debug: false
-    }
-  },
-  scene: [MenuScene, RunScene, CampScene]
-};
-
-const game = new Phaser.Game(config);
-
-game.events.on('ready', () => {
-  overlay?.style && (overlay.style.display = 'none');
 });

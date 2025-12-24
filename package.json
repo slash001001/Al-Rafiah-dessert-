@@ -1,13 +1,13 @@
 {
   "name": "al-rafiah-dessert",
-  "version": "1.0.0",
+  "version": "0.0.1",
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite --open index-dev.html --host",
-    "build": "tsc -p tsconfig.json && vite build && cp dist/index-dev.html dist/index.html",
+    "dev": "vite",
+    "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "deploy": "npm run build && gh-pages -d dist -b gh-pages --dotfiles"
+    "deploy": "npm run build && gh-pages -d dist -b gh-pages"
   },
   "dependencies": {
     "phaser": "^3.90.0"
