@@ -1,12 +1,18 @@
 import Phaser from 'phaser';
-import { ItemKey, getMissingEssentials } from '../data/items';
+import { ItemKey, essentials, getMissingEssentials } from '../data/items';
+import { pickJoke, pickRare } from '../systems/JokeEngine';
+import { mulberry32, hashStringToSeed } from '../systems/rng';
+import { inc, getNumber, setNumber } from '../systems/persist';
+import { beep } from '../ui/Sfx';
 
 interface CampData {
   result: 'win' | 'fail';
   collected: ItemKey[];
-  vehicle: string;
+  vehicle: 'gmc' | 'prado';
   reason: string;
-  timeSpent: number;
+  timeUsedSeconds: number;
+  eventsTriggered: string[];
+  funniestKey?: string | null;
 }
 
 export default class CampScene extends Phaser.Scene {
@@ -18,12 +24,13 @@ export default class CampScene extends Phaser.Scene {
     const { width, height } = this.scale;
     this.cameras.main.setBackgroundColor('#0b0f14');
     this.cameras.main.fadeIn(200, 0, 0, 0);
+    const rng = mulberry32(hashStringToSeed(`${Date.now()}-${Math.random()}`));
 
-    const panel = this.add.rectangle(width / 2, height / 2, width * 0.7, height * 0.7, 0x111827, 0.9)
+    const panel = this.add.rectangle(width / 2, height / 2, width * 0.78, height * 0.76, 0x111827, 0.9)
       .setStrokeStyle(2, data.result === 'win' ? 0x4ade80 : 0xf87171);
 
     const title = data.result === 'win' ? 'وصلنا قبل الغروب ✅' : 'غابت الشمس قبل لا نوصل 🌅💀';
-    this.add.text(width / 2, height / 2 - 150, title, {
+    this.add.text(width / 2, height / 2 - 180, title, {
       fontSize: '26px',
       color: data.result === 'win' ? '#86efac' : '#fca5a5',
       fontFamily: 'system-ui'
@@ -31,43 +38,72 @@ export default class CampScene extends Phaser.Scene {
 
     const collectedSet = new Set<ItemKey>(data.collected || []);
     const missing = getMissingEssentials(collectedSet);
-    const recap: string[] = [];
-    recap.push(`السيارة: ${data.vehicle === 'gmc' ? 'جمس أسود' : 'برادو بني'}`);
-    recap.push(`الوقت: ${data.timeSpent.toFixed(1)} ثانية`);
-    recap.push(`الأغراض: ${data.collected.length ? data.collected.map((k) => k).join(', ') : 'ولا شي'}`);
-    recap.push(`ناقص: ${missing.length ? missing.join(', ') : 'ولا حاجة'}`);
 
-    recap.push(this.cookOutcome(collectedSet, missing));
+    const funniest = data.funniestKey || (data.eventsTriggered && data.eventsTriggered[0]) || 'plan_failed_generic';
+    const funniestLine = pickJoke(rng, `event_${funniest}`, 'الخطة فشلت بس انبسطنا');
+    const planLine = pickJoke(rng, 'plan_failed_generic', 'التخطيط صفر والمتعة عشرة');
+    const aliLine = pickRare(rng, 0.03) ? pickJoke(rng, 'ali_mishari_rare', '') : '';
 
-    const recapText = this.add.text(width / 2, height / 2 - 80, recap.join('\n'), {
+    const forgotLine = this.missingLines(missing);
+    const outcome = this.cookOutcome(rng, collectedSet, missing);
+
+    const recapLines = [
+      `وش نسيت؟ ${forgotLine}`,
+      `أغرب شي صار: ${funniestLine}`,
+      `التخطيط: ${essentials.length - missing.length}/4`
+    ];
+    recapLines.push(planLine);
+    if (aliLine) recapLines.push(aliLine);
+    recapLines.push(outcome);
+
+    this.add.text(width / 2, height / 2 - 110, recapLines.join('\n'), {
       fontSize: '18px',
       color: '#e5e7eb',
       fontFamily: 'system-ui',
       align: 'center',
-      wordWrap: { width: width * 0.6 }
+      wordWrap: { width: width * 0.7 }
     }).setOrigin(0.5, 0);
 
-    const restart = this.makeButton(width / 2, height / 2 + 120, 'رجعنا للمنيو', () => this.backMenu());
-    const rerun = this.makeButton(width / 2, height / 2 + 170, 'إعادة الجولة', () => this.restartRun(data.vehicle));
+    this.renderBadges(width, height, missing, data.eventsTriggered);
+
+    const restart = this.makeButton(width / 2, height / 2 + 150, 'طلعنا مرة ثانية', () => this.backMenu());
+    const rerun = this.makeButton(width / 2, height / 2 + 200, 'إعادة نفس الجولة', () => this.restartRun(data.vehicle));
 
     panel.setDepth(1);
-    recapText.setDepth(2);
     restart.setDepth(2);
     rerun.setDepth(2);
   }
 
-  private cookOutcome(collected: Set<ItemKey>, missing: ItemKey[]) {
+  private renderBadges(width: number, height: number, missing: ItemKey[], events: string[]) {
+    const badges: string[] = [];
+    if (missing.includes('salt')) badges.push('نسيت الملح');
+    if (events.filter((e) => e === 'stuck').length >= 2) badges.push('ملك الغرز');
+    if (events.includes('helicopter')) badges.push('افتتاح الموسم');
+    badges.forEach((b, i) => {
+      this.add.text(width / 2 - 120 + i * 120, height / 2 + 70, `🏅 ${b}`, {
+        fontSize: '16px',
+        color: '#fcd34d',
+        fontFamily: 'system-ui'
+      }).setOrigin(0.5);
+    });
+  }
+
+  private missingLines(missing: ItemKey[]) {
+    if (!missing.length) return 'ما نسينا شي (معجزة)';
+    return missing.join(', ');
+  }
+
+  private cookOutcome(rng: () => number, collected: Set<ItemKey>, missing: ItemKey[]) {
     let chance = 0.2;
     if (collected.has('salt')) chance += 0.25;
     if (collected.has('charcoal')) chance += 0.2;
     if (collected.has('lighter')) chance += 0.2;
     if (collected.has('water')) chance += 0.15;
-    chance += 0.1; // الصدفة
+    chance += 0.1;
     chance = Math.min(0.95, chance);
-    const roll = Math.random();
-    const success = roll < chance;
-    if (!collected.has('salt')) return 'بدون ملح؟ الطبخة صارت سويت… 🤦‍♂️';
-    return success ? 'الطبخة: ضبطت صدفة 🔥' : 'الطبخة: خربت… طبيعي 🤝';
+    const success = rng() < chance;
+    if (!collected.has('salt')) return pickJoke(rng, 'forgot_salt', 'بدون ملح؟ الطبخة راحت');
+    return success ? pickJoke(rng, 'cooking_success', 'الطبخة: ضبطت') : pickJoke(rng, 'cooking_fail', 'الطبخة خربت');
   }
 
   private makeButton(x: number, y: number, label: string, cb: () => void) {
@@ -79,7 +115,10 @@ export default class CampScene extends Phaser.Scene {
       fontFamily: 'system-ui'
     }).setOrigin(0.5);
     btn.setInteractive({ useHandCursor: true });
-    btn.on('pointerdown', cb);
+    btn.on('pointerdown', () => {
+      beep('ui');
+      cb();
+    });
     btn.on('pointerover', () => btn.setScale(1.05));
     btn.on('pointerout', () => btn.setScale(1));
     return btn;

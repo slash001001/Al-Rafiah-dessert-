@@ -1,10 +1,13 @@
 import Phaser from 'phaser';
 import { setOverlayStatus } from '../ui/overlay';
+import { inc } from '../systems/persist';
+import { isMuted, toggleMute, beep } from '../ui/Sfx';
 
 type Vehicle = 'gmc' | 'prado';
 
 export default class MenuScene extends Phaser.Scene {
   private selected: Vehicle = 'gmc';
+  private muteLabel!: Phaser.GameObjects.Text;
 
   constructor() {
     super('MenuScene');
@@ -28,16 +31,39 @@ export default class MenuScene extends Phaser.Scene {
       color: '#e5e7eb'
     }).setOrigin(0.5);
 
+    this.add.text(width / 2, height / 2 - 60, 'التحكم: WASD/الأسهم — نيترو: Space — زمور: H', {
+      fontSize: '14px',
+      fontFamily: 'system-ui, sans-serif',
+      color: '#cbd5e1'
+    }).setOrigin(0.5);
+
     const cards: { x: number; v: Vehicle; label: string; desc: string }[] = [
       { x: width / 2 - 160, v: 'gmc', label: 'جمس أسود', desc: 'ثقيل • ثابت • يحرق بنزين' },
       { x: width / 2 + 160, v: 'prado', label: 'برادو بني', desc: 'خفيف • سريع • ينقلب أسهل' }
     ];
 
-    cards.forEach((card) => this.makeCard(card.x, height / 2, card.v, card.label, card.desc));
+    cards.forEach((card) => this.makeCard(card.x, height / 2 + 10, card.v, card.label, card.desc));
 
-    const start = this.makeButton(width / 2, height / 2 + 140, 'ابدأ الرحلة', () => this.startRun());
+    const start = this.makeButton(width / 2, height / 2 + 160, 'ابدأ الرحلة', () => this.startRun());
     this.input.keyboard?.on('keydown-ENTER', () => start.emit('pointerdown'));
     this.input.keyboard?.on('keydown-SPACE', () => start.emit('pointerdown'));
+
+    this.muteLabel = this.add.text(width - 90, height - 40, this.muteText(), {
+      fontSize: '14px',
+      color: '#e5e7eb',
+      backgroundColor: '#1f2937',
+      padding: { x: 10, y: 6 },
+      fontFamily: 'system-ui'
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true }).setScrollFactor(0);
+    this.muteLabel.on('pointerdown', () => {
+      toggleMute();
+      this.muteLabel.setText(this.muteText());
+      beep('ui');
+    });
+  }
+
+  private muteText() {
+    return isMuted() ? '🔇 ميوت' : '🔊 صوت';
   }
 
   private makeCard(x: number, y: number, v: Vehicle, title: string, desc: string) {
@@ -48,7 +74,10 @@ export default class MenuScene extends Phaser.Scene {
     container.add([base, t, d]);
     container.setSize(220, 140);
     container.setInteractive({ useHandCursor: true });
-    container.on('pointerdown', () => this.pick(v, base));
+    container.on('pointerdown', () => {
+      beep('ui');
+      this.pick(v, base);
+    });
     container.on('pointerover', () => container.setScale(1.05));
     container.on('pointerout', () => container.setScale(1));
     if (v === this.selected) base.setStrokeStyle(3, 0xf4c27a);
@@ -63,7 +92,10 @@ export default class MenuScene extends Phaser.Scene {
       fontFamily: 'system-ui'
     }).setOrigin(0.5);
     btn.setInteractive({ useHandCursor: true });
-    btn.on('pointerdown', cb);
+    btn.on('pointerdown', () => {
+      beep('ui');
+      cb();
+    });
     btn.on('pointerover', () => btn.setScale(1.05));
     btn.on('pointerout', () => btn.setScale(1));
     return btn;
@@ -78,6 +110,7 @@ export default class MenuScene extends Phaser.Scene {
   }
 
   private startRun() {
+    inc('rafiah_runs', 1);
     this.cameras.main.fadeOut(200, 0, 0, 0);
     this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
       this.scene.start('RunScene', { vehicle: this.selected });
