@@ -1,43 +1,31 @@
-import Phaser from "phaser";
+import Phaser from 'phaser';
+import MenuScene from './scenes/MenuScene';
+import RunScene from './scenes/RunScene';
+import CampScene from './scenes/CampScene';
+import { createOverlay, setOverlayStatus } from './ui/overlay';
 
-class SmokeScene extends Phaser.Scene {
-  constructor() {
-    super("SmokeScene");
-  }
-  create() {
-    const { width, height } = this.scale;
+createOverlay();
 
-    // Background
-    this.cameras.main.setBackgroundColor(0x0b0f14);
-
-    // Title
-    this.add
-      .text(width / 2, height / 2 - 20, "الرافعية — تشغيل تجريبي", {
-        fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, Arial",
-        fontSize: "32px",
-        color: "#ffffff",
-      })
-      .setOrigin(0.5);
-
-    this.add
-      .text(width / 2, height / 2 + 30, "Phaser bundled ✅ | Vite ✅ | GH Pages base ✅", {
-        fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, Arial",
-        fontSize: "16px",
-        color: "#cbd5e1",
-      })
-      .setOrigin(0.5);
-  }
-}
-
-new Phaser.Game({
+const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
-  parent: "app",
+  parent: 'app',
   width: 960,
   height: 540,
-  backgroundColor: "#0b0f14",
-  scene: [SmokeScene],
+  backgroundColor: '#0b0f14',
+  physics: {
+    default: 'arcade',
+    arcade: {
+      gravity: { x: 0, y: 0 },
+      debug: false
+    }
+  },
   scale: {
     mode: Phaser.Scale.FIT,
-    autoCenter: Phaser.Scale.CENTER_BOTH,
+    autoCenter: Phaser.Scale.CENTER_BOTH
   },
-});
+  scene: [MenuScene, RunScene, CampScene]
+};
+
+const game = new Phaser.Game(config);
+
+game.events.once('ready', () => setOverlayStatus('جاهز'));
