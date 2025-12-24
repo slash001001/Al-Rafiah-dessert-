@@ -1,14 +1,12 @@
-# Rafiah Dune Adventure (Clean Rebuild)
+# Al-Rafiah Dunes (Clean Rebuild)
 
-Minimal Phaser + Vite (TypeScript) MVP:
-- Menu → Run → Camp flow
-- Procedural visuals only (no external assets)
-- Local Phaser bundle (no CDN)
+طلعة بر كرتونية عن الرافعية: نبدأ من الطريق، نلم الأغراض (ملح/موية/فحم/ولاعة/حمص)، ندخل الطعوس ونوصل قبل الغروب. سيارتين: جمس أسود ثقيل، برادو بني خفيف. فيه بنزين + نيترو، أحداث عشوائية مضحكة، وخاتمة قعدة نار تسجل اللي نسيناه.
 
-Scripts:
+## Commands
+- `npm install`
 - `npm run dev`
 - `npm run build`
 - `npm run preview`
-- `npm run deploy` (build + gh-pages to `gh-pages` branch)
+- `npm run deploy` (يبني ويحدّث gh-pages)
 
-Deployed URL: https://slash001001.github.io/Al-Rafiah-dessert-/
+تقنية: Vite + TypeScript + Phaser (محلي، بدون CDN). لا يوجد Service Worker. القاعدة لصفحة جيت هاب: `/Al-Rafiah-dessert-/`.

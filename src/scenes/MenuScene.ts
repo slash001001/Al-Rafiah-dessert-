@@ -10,9 +10,15 @@ export default class MenuScene extends Phaser.Scene {
   }
 
   create() {
+    const overlay = document.getElementById('error-overlay');
+    if (overlay) {
+      overlay.innerHTML = '';
+      (overlay as HTMLDivElement).style.display = 'none';
+    }
+
     const { width, height } = this.scale;
     this.cameras.main.setBackgroundColor(0x0b0f14);
-    this.cameras.main.fadeIn(200, 0, 0, 0);
+    this.cameras.main.fadeIn(180, 0, 0, 0);
 
     this.add.text(width / 2, height / 2 - 140, 'الرافعية', {
       fontSize: '52px',

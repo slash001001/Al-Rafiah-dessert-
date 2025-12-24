@@ -6,355 +6,433 @@ interface RunData {
   vehicle: VehicleType;
 }
 
-interface Item {
+interface ChaosEvent {
   key: string;
   label: string;
-  color: number;
-  x: number;
-  y: number;
+  duration: number;
+  effect: () => void;
 }
+
+const VEHICLES: Record<VehicleType, { color: number; shadow: number; accel: number; drag: number; max: number; fuelUse: number }> = {
+  gmc: { color: 0x111111, shadow: 0x000000, accel: 420, drag: 220, max: 320, fuelUse: 0.25 },
+  prado: { color: 0x6b4a2d, shadow: 0x2d1a0a, accel: 520, drag: 180, max: 360, fuelUse: 0.2 }
+};
+
+const ITEM_KEYS = ['salt', 'water', 'charcoal', 'lighter', 'hummus'] as const;
+type ItemKey = (typeof ITEM_KEYS)[number];
 
 export default class RunScene extends Phaser.Scene {
   private vehicle: VehicleType = 'gmc';
-  private player!: Phaser.Physics.Arcade.Sprite;
-  private shadow!: Phaser.GameObjects.Image;
+  private player!: Phaser.Physics.Arcade.Image;
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
-  private keys!: Record<string, Phaser.Input.Keyboard.Key>;
-  private fuel = 100;
-  private nitro = { active: false, timer: 0, cooldown: 0 };
-  private items: Item[] = [];
-  private collected = new Set<string>();
-  private hud: Record<string, Phaser.GameObjects.Text> = {};
-  private timerTotal = 210;
-  private timer = this.timerTotal;
-  private finishX = 3200;
-  private chaosQueue: string[] = [];
-  private chaosCooldown = 12;
-  private chaosTimer = 6;
-  private statusText!: Phaser.GameObjects.Text;
-  private trailTimer = 0;
+  private keys!: { [k: string]: Phaser.Input.Keyboard.Key };
+  private worldWidth = 4200;
+  private worldHeight = 1600;
+  private bgFar!: Phaser.GameObjects.TileSprite;
+  private bgNear!: Phaser.GameObjects.TileSprite;
+  private hudSpeed!: Phaser.GameObjects.Text;
+  private hudFuel!: Phaser.GameObjects.Text;
+  private hudTime!: Phaser.GameObjects.Text;
+  private hudItems!: Phaser.GameObjects.Text;
+  private fuel = 110;
+  private speed = 0;
+  private angle = -0.02;
+  private sunset = 210; // seconds ~3.5 min
+  private elapsed = 0;
+  private inventory: Set<ItemKey> = new Set();
+  private isFinished = false;
+  private finishZone!: Phaser.GameObjects.Rectangle;
+  private eventsQueue: ChaosEvent[] = [];
+  private activeEffects: Set<string> = new Set();
+  private log: string[] = [];
+  private lastTrail = 0;
 
   constructor() {
     super('RunScene');
   }
 
+  init(data: RunData) {
+    this.vehicle = data?.vehicle || 'gmc';
+  }
+
   preload() {
-    this.makeTextures();
+    this.createTextures();
   }
 
-  makeTextures() {
-    const g = this.add.graphics();
-    // car body
-    g.fillStyle(this.vehicle === 'prado' ? 0x8b5a2b : 0x111111, 1);
-    g.fillRoundedRect(0, 0, 56, 30, 6);
-    g.fillStyle(0xffffff, 0.6);
-    g.fillRect(6, 6, 18, 10);
-    g.fillRect(32, 6, 18, 10);
-    g.generateTexture('car-body', 56, 30);
-    g.clear();
-    g.fillStyle(0x000000, 0.25);
-    g.fillEllipse(28, 16, 60, 20);
-    g.generateTexture('car-shadow', 60, 24);
-    g.clear();
-    // rock
-    g.fillStyle(0x7c5b3a, 1);
-    g.fillCircle(0, 0, 12);
-    g.generateTexture('rock', 24, 24);
-    g.clear();
-    // puff
-    g.fillStyle(0xffffff, 1);
-    g.fillCircle(5, 5, 5);
-    g.generateTexture('puff', 10, 10);
-    g.clear();
-    // finish
-    g.fillStyle(0xf4c27a, 1);
-    g.fillRect(0, 0, 140, 16);
-    g.fillStyle(0x111111, 1);
-    for (let i = 0; i < 14; i += 1) {
-      if (i % 2 === 0) g.fillRect(i * 10, 0, 10, 16);
-    }
-    g.generateTexture('finish', 140, 16);
-    g.clear();
-    // dune tiles
-    g.fillStyle(0xf2d7a6, 1);
-    g.fillRect(0, 0, 64, 64);
-    g.lineStyle(2, 0xe9c792, 0.4);
-    for (let i = 0; i < 10; i += 1) {
-      g.strokeCircle(Phaser.Math.Between(0, 64), Phaser.Math.Between(0, 64), Phaser.Math.Between(1, 3));
-    }
-    g.generateTexture('sand-tex', 64, 64);
-    g.clear();
-    g.lineStyle(3, 0xe4c48e, 0.6);
-    for (let x = 0; x < 256; x += 12) {
-      const y = 60 + Math.sin(x * 0.12) * 10;
-      g.lineBetween(x, y, x + 12, 60 + Math.sin((x + 12) * 0.12) * 10);
-    }
-    g.generateTexture('ridge', 256, 128);
-    g.destroy();
-  }
-
-  create(data: RunData) {
-    this.vehicle = data?.vehicle ?? 'gmc';
-    this.makeTextures();
-    this.timer = this.timerTotal;
-    this.fuel = 100;
-    this.collected.clear();
-    this.chaosQueue = ['stuck', 'overheat', 'flat', 'rain', 'helicopter', 'camel', 'dogs'].sort(() => Math.random() - 0.5);
-    this.chaosCooldown = 10;
-    this.chaosTimer = 8;
-    this.trailTimer = 0;
-
+  create() {
     const { width, height } = this.scale;
-    this.cameras.main.setBackgroundColor(0x0b0f14);
-    this.cameras.main.fadeIn(180, 0, 0, 0);
+    this.cameras.main.setBackgroundColor('#0b0f14');
+    this.cameras.main.fadeIn(200, 0, 0, 0);
 
-    // background layers
-    this.add.tileSprite(0, 0, width, height, 'ridge').setOrigin(0, 0).setScrollFactor(0.1).setAlpha(0.35);
-    this.add.tileSprite(0, height * 0.55, width, height * 0.45, 'sand-tex').setOrigin(0, 0).setScrollFactor(0.2);
+    this.bgFar = this.add.tileSprite(width / 2, height / 2, width, height, 'sand-far').setScrollFactor(0);
+    this.bgNear = this.add.tileSprite(width / 2, height / 2, width, height, 'sand-near').setScrollFactor(0);
 
-    this.player = this.physics.add.sprite(160, height / 2, 'car-body');
-    this.shadow = this.add.image(this.player.x, this.player.y + 12, 'car-shadow');
-    this.shadow.setDepth(-1);
-    this.physics.world.setBounds(0, 0, 3600, height);
+    this.physics.world.setBounds(0, 0, this.worldWidth, this.worldHeight);
+
+    const stats = VEHICLES[this.vehicle];
+    this.player = this.physics.add.image(180, this.worldHeight / 2, `car-${this.vehicle}`);
+    this.player.setDamping(true).setDrag(stats.drag).setMaxVelocity(stats.max).setAngularDrag(600);
+    this.player.setSize(48, 24);
     this.player.setCollideWorldBounds(true);
+
+    this.createStops();
+    this.createDunes();
+    this.createFinish();
+    this.createHUD();
+    this.createTrailTimer();
+
+    const keyboard = this.input.keyboard!;
+    this.cursors = keyboard.createCursorKeys();
+    this.keys = keyboard.addKeys({
+      W: Phaser.Input.Keyboard.KeyCodes.W,
+      A: Phaser.Input.Keyboard.KeyCodes.A,
+      S: Phaser.Input.Keyboard.KeyCodes.S,
+      D: Phaser.Input.Keyboard.KeyCodes.D,
+      SHIFT: Phaser.Input.Keyboard.KeyCodes.SHIFT,
+      H: Phaser.Input.Keyboard.KeyCodes.H
+    }) as any;
 
     this.cameras.main.startFollow(this.player, true, 0.12, 0.12);
     this.cameras.main.setDeadzone(220, 140);
-    this.cameras.main.setFollowOffset(0, -30);
+    this.cameras.main.setBounds(0, 0, this.worldWidth, this.worldHeight);
 
-    this.cursors = this.input.keyboard!.createCursorKeys();
-    this.keys = this.input.keyboard!.addKeys('W,A,S,D,SPACE,ESC') as Record<string, Phaser.Input.Keyboard.Key>;
+    this.scheduleChaos();
 
-    this.spawnStops();
-    this.spawnItems();
-    this.spawnRocks();
-    this.makeFinish();
-    this.makeHUD();
-
-    this.statusText = this.add.text(width / 2, 60, '', {
-      fontSize: '20px',
-      fontFamily: 'system-ui, sans-serif',
-      color: '#ffffff',
-      backgroundColor: 'rgba(0,0,0,0.35)',
-      padding: { x: 10, y: 6 }
-    }).setOrigin(0.5).setScrollFactor(0);
-  }
-
-  spawnStops() {
-    // station, restaurant, shop
-    const stops = [
-      { x: 400, label: 'محطة', action: () => { this.fuel = 100; this.toast('فللنا بنزين'); } },
-      { x: 800, label: 'مطعم', action: () => this.toast('شاورما على السريع') },
-      { x: 1100, label: 'بقالة', action: () => this.collectRandom() }
-    ];
-    stops.forEach(stop => {
-      const rect = this.add.rectangle(stop.x, this.scale.height / 2, 120, 120, 0x2e86ab, 0.4).setStrokeStyle(3, 0xffffff, 0.8);
-      this.physics.add.existing(rect, true);
-      this.physics.add.overlap(this.player, rect as any, () => stop.action(), undefined, this);
-      this.add.text(stop.x, this.scale.height / 2 - 80, stop.label, {
-        fontSize: '16px',
-        fontFamily: 'system-ui, sans-serif',
-        color: '#ffffff',
-        backgroundColor: 'rgba(0,0,0,0.45)',
-        padding: { x: 6, y: 4 }
-      }).setOrigin(0.5);
-    });
-  }
-
-  collectRandom() {
-    const pool = ['salt', 'water', 'charcoal', 'lighter', 'hummus'];
-    const pick = pool[Math.floor(Math.random() * pool.length)];
-    if (!this.collected.has(pick)) {
-      this.collected.add(pick);
-      this.toast(`لقينا ${pick}`);
-    } else {
-      this.toast('ما لقينا شي جديد');
-    }
-  }
-
-  spawnItems() {
-    const labels = [
-      { key: 'salt', label: 'ملح', color: 0xdcd6f7 },
-      { key: 'water', label: 'مويه', color: 0x7fc8f8 },
-      { key: 'charcoal', label: 'فحم', color: 0x2b2b2b },
-      { key: 'lighter', label: 'ولاعة', color: 0xffc857 },
-      { key: 'hummus', label: 'حمص', color: 0xfff2b2 }
-    ];
-    const spread = 2200;
-    this.items = labels.map((item, i) => ({
-      ...item,
-      x: 1400 + i * (spread / labels.length) + Phaser.Math.Between(-40, 40),
-      y: Phaser.Math.Between(180, this.scale.height - 180)
-    }));
-    this.items.forEach(item => {
-      const icon = this.add.rectangle(item.x, item.y, 28, 20, item.color).setStrokeStyle(2, 0x111111);
-      this.physics.add.existing(icon, true);
-      this.physics.add.overlap(this.player, icon as any, () => {
-        if (!this.collected.has(item.key)) {
-          this.collected.add(item.key);
-          icon.destroy();
-          this.toast(`أخذت ${item.label}`);
+    this.time.addEvent({
+      delay: 1000,
+      loop: true,
+      callback: () => {
+        if (this.isFinished) return;
+        this.sunset -= 1;
+        if (this.sunset <= 0) {
+          this.finishRun(false, 'غابت الشمس قبل القعدة');
         }
-      });
-    });
-  }
-
-  spawnRocks() {
-    for (let i = 0; i < 8; i += 1) {
-      const x = Phaser.Math.Between(1200, 3200);
-      const y = Phaser.Math.Between(180, this.scale.height - 180);
-      const rock = this.physics.add.staticImage(x, y, 'rock');
-      rock.body.setCircle(12);
-      this.physics.add.overlap(this.player, rock, () => this.hitRock(), undefined, this);
-    }
-  }
-
-  makeFinish() {
-    const y = this.scale.height / 2;
-    const gate = this.physics.add.staticImage(this.finishX, y, 'finish');
-    (gate.body as Phaser.Physics.Arcade.StaticBody).setSize(140, 2000);
-    this.physics.add.overlap(this.player, gate, () => this.win(), undefined, this);
-  }
-
-  makeHUD() {
-    const panel = this.add.graphics().setScrollFactor(0);
-    panel.fillStyle(0x0b0f14, 0.75);
-    panel.fillRoundedRect(12, 12, 340, 120, 12);
-    const style = { fontSize: '18px', fontFamily: 'system-ui, sans-serif', color: '#e8f1ff' };
-    this.hud.speed = this.add.text(20, 20, 'Speed: 0', style).setScrollFactor(0);
-    this.hud.fuel = this.add.text(20, 44, 'Fuel: 100%', style).setScrollFactor(0);
-    this.hud.timer = this.add.text(20, 68, 'Time: 0', style).setScrollFactor(0);
-    this.hud.items = this.add.text(20, 92, 'Items: 0/5', style).setScrollFactor(0);
-    this.hud.timeLeft = this.add.text(this.scale.width - 16, 20, '', style).setOrigin(1, 0).setScrollFactor(0);
-  }
-
-  update(time: number, delta: number) {
-    if (!this.player) return;
-    const dt = delta / 1000;
-    this.timer -= dt;
-    if (this.timer <= 0) return this.fail();
-
-    this.handleInput(dt);
-    this.updateHUD();
-    this.updateTrail(dt);
-    this.handleChaos(dt);
-    this.shadow.setPosition(this.player.x, this.player.y + 12);
-  }
-
-  handleInput(dt: number) {
-    const body = this.player.body as Phaser.Physics.Arcade.Body;
-    const throttle = this.cursors.up.isDown || this.keys.W.isDown;
-    const brake = this.cursors.down.isDown || this.keys.S.isDown;
-    const left = this.cursors.left.isDown || this.keys.A.isDown;
-    const right = this.cursors.right.isDown || this.keys.D.isDown;
-    const boostReq = this.keys.SPACE.isDown;
-
-    if (this.nitro.cooldown > 0) this.nitro.cooldown -= dt;
-    if (this.nitro.active) {
-      this.nitro.timer -= dt;
-      if (this.nitro.timer <= 0) {
-        this.nitro.active = false;
-        this.nitro.cooldown = 3;
       }
-    } else if (boostReq && this.nitro.cooldown <= 0 && this.fuel > 5) {
-      this.nitro.active = true;
-      this.nitro.timer = 1;
-      this.toast('نيترو!');
-    }
-
-    const accel = throttle ? 170 : 0;
-    const brakeForce = brake ? 220 : 0;
-    const boost = this.nitro.active ? 300 : 0;
-    const fuelDrain = throttle ? 6 * dt : 1.5 * dt;
-    this.fuel = Math.max(0, this.fuel - fuelDrain - (this.nitro.active ? 8 * dt : 0));
-
-    const drag = 0.9;
-    const maxSpeed = this.fuel <= 0 ? 220 : 420;
-    const steer = (left ? -1 : 0) + (right ? 1 : 0);
-    const speed = body.velocity.length();
-    const speedNorm = Phaser.Math.Clamp(speed / maxSpeed, 0, 1);
-
-    const ax = (accel + boost - brakeForce - drag * speed) * Math.cos(this.player.rotation);
-    const ay = (accel + boost - brakeForce - drag * speed) * Math.sin(this.player.rotation);
-    body.velocity.x += ax * dt;
-    body.velocity.y += ay * dt;
-    if (body.velocity.length() > maxSpeed) {
-      body.velocity.setLength(maxSpeed);
-    }
-    if (Math.abs(steer) > 0.1 && speed > 10) {
-      this.player.rotation += steer * (2.6 + 2 * speedNorm) * dt;
-    }
-
-    this.cameras.main.setFollowOffset(0, -30 + Math.sin(this.time.now * 0.003) * 8);
+    });
   }
 
-  updateTrail(dt: number) {
-    const body = this.player.body as Phaser.Physics.Arcade.Body;
-    this.trailTimer -= dt;
-    if (this.trailTimer <= 0 && body.velocity.length() > 40) {
-      this.trailTimer = 0.05;
-      const offset = new Phaser.Math.Vector2(-20, 6).rotate(this.player.rotation);
-      const puff = this.add.image(this.player.x + offset.x, this.player.y + offset.y, 'puff')
-        .setScale(Phaser.Math.FloatBetween(0.8, 1.2))
-        .setAlpha(0.7);
-      this.tweens.add({
-        targets: puff,
-        alpha: 0,
-        scale: puff.scale * 1.8,
-        duration: 320,
-        ease: 'Sine.easeOut',
-        onComplete: () => puff.destroy()
+  private createTextures() {
+    const g = this.add.graphics();
+    g.fillStyle(0x0b0f14);
+    g.fillRect(0, 0, 2, 2);
+    g.generateTexture('void', 2, 2);
+    g.clear();
+
+    const makeNoise = (key: string, color: number) => {
+      const size = 128;
+      g.clear();
+      for (let i = 0; i < 350; i++) {
+        const x = Phaser.Math.Between(0, size);
+        const y = Phaser.Math.Between(0, size);
+        const alpha = Phaser.Math.FloatBetween(0.03, 0.12);
+        g.fillStyle(color, alpha);
+        g.fillRect(x, y, 2, 2);
+      }
+      g.generateTexture(key, size, size);
+    };
+    makeNoise('sand-far', 0xf0d9a1);
+    makeNoise('sand-near', 0xd9a066);
+
+    const makeCar = (key: string, body: number, shadow: number) => {
+      g.clear();
+      g.fillStyle(shadow, 0.6);
+      g.fillRoundedRect(4, 12, 84, 34, 8);
+      g.fillStyle(body, 1);
+      g.fillRoundedRect(0, 8, 90, 36, 8);
+      g.fillStyle(0x1e1e1e, 1);
+      g.fillRect(8, 12, 74, 16);
+      g.fillStyle(0xd1d1d1);
+      g.fillRect(16, 16, 16, 12);
+      g.fillRect(58, 16, 16, 12);
+      g.generateTexture(key, 92, 52);
+    };
+    makeCar('car-gmc', VEHICLES.gmc.color, VEHICLES.gmc.shadow);
+    makeCar('car-prado', VEHICLES.prado.color, VEHICLES.prado.shadow);
+
+    g.clear();
+    g.fillStyle(0x70543c);
+    g.fillCircle(12, 12, 12);
+    g.fillStyle(0x4a3424);
+    g.fillCircle(10, 10, 10);
+    g.generateTexture('rock', 24, 24);
+
+    g.clear();
+    g.fillStyle(0xffffff);
+    g.fillCircle(8, 8, 8);
+    g.generateTexture('puff', 16, 16);
+
+    g.clear();
+    g.fillStyle(0x1f2937, 0.7);
+    g.fillRoundedRect(0, 0, 210, 86, 8);
+    g.generateTexture('hud-panel', 210, 86);
+
+    g.clear();
+    g.fillStyle(0xffe066);
+    g.fillRect(0, 0, 120, 40);
+    g.fillStyle(0x111111);
+    g.fillRect(0, 18, 120, 6);
+    g.generateTexture('finish', 120, 40);
+  }
+
+  private createHUD() {
+    const panel = this.add.image(18, 18, 'hud-panel').setOrigin(0).setScrollFactor(0);
+    this.hudSpeed = this.add.text(28, 26, 'سرعة: 0', this.hudStyle()).setScrollFactor(0);
+    this.hudFuel = this.add.text(28, 48, 'بنزين: 100', this.hudStyle()).setScrollFactor(0);
+    this.hudTime = this.add.text(28, 70, 'غروب: 0:00', this.hudStyle()).setScrollFactor(0);
+    this.hudItems = this.add.text(240, 30, 'أغراض: -', this.hudStyle()).setScrollFactor(0);
+    this.children.bringToTop(panel);
+  }
+
+  private hudStyle() {
+    return {
+      fontSize: '16px',
+      fontFamily: 'system-ui, sans-serif',
+      color: '#e5e7eb'
+    };
+  }
+
+  private createStops() {
+    const stops: { x: number; label: string; grants: ItemKey[] }[] = [
+      { x: 420, label: 'محطة بنزين', grants: ['water'] },
+      { x: 750, label: 'مطعم', grants: ['hummus'] },
+      { x: 1050, label: 'بقالة', grants: ['salt', 'lighter'] }
+    ];
+    stops.forEach((stop) => {
+      const pad = this.add.rectangle(stop.x, this.worldHeight / 2 - 120, 120, 80, 0x2e86ab, 0.5);
+      this.physics.add.existing(pad, true);
+      this.add.text(stop.x, this.worldHeight / 2 - 170, stop.label, { fontSize: '16px', color: '#ffffff' }).setOrigin(0.5);
+      this.physics.add.overlap(this.player, pad, () => {
+        stop.grants.forEach((i) => this.inventory.add(i));
+        this.log.push(`أخذت ${stop.grants.join(', ')}`);
+        this.addFloatingText(pad.x, pad.y - 30, 'خذنا المطلوب');
+      });
+    });
+  }
+
+  private createDunes() {
+    const rocks = this.physics.add.staticGroup();
+    for (let i = 0; i < 12; i++) {
+      const x = Phaser.Math.Between(1500, this.worldWidth - 400);
+      const y = Phaser.Math.Between(200, this.worldHeight - 200);
+      rocks.create(x, y, 'rock').setScale(1.2).refreshBody();
+    }
+    this.physics.add.collider(this.player, rocks, () => {
+      this.speed *= 0.6;
+      this.cameras.main.shake(120, 0.002);
+      this.log.push('دعست صخرة');
+    });
+  }
+
+  private createFinish() {
+    const zoneX = this.worldWidth - 200;
+    this.finishZone = this.add.rectangle(zoneX, this.worldHeight / 2, 140, 220, 0x4ade80, 0.2);
+    this.add.image(zoneX, this.worldHeight / 2 - 80, 'finish').setAngle(-4);
+    const flagText = this.add.text(zoneX, this.worldHeight / 2 + 60, 'قمة الطعس', {
+      fontSize: '18px',
+      color: '#fef08a',
+      fontFamily: 'system-ui'
+    }).setOrigin(0.5);
+    this.physics.add.existing(this.finishZone, true);
+    this.physics.add.overlap(this.player, this.finishZone, () => this.finishRun(true, 'وصلت قبل الغروب'));
+  }
+
+  private createTrailTimer() {
+    this.time.addEvent({
+      delay: 70,
+      loop: true,
+      callback: () => {
+        if (!this.player || this.isFinished) return;
+        const puff = this.add.image(this.player.x, this.player.y, 'puff').setTint(0xf1c27d).setAlpha(0.6);
+        this.tweens.add({
+          targets: puff,
+          alpha: 0,
+          scale: 2,
+          duration: 500,
+          onComplete: () => puff.destroy()
+        });
+      }
+    });
+  }
+
+  private scheduleChaos() {
+    const possible = ['stuck', 'overheat', 'flat', 'rain', 'heli', 'camel', 'dogs'];
+    Phaser.Utils.Array.Shuffle(possible);
+    const count = Phaser.Math.Between(3, 5);
+    let t = 14;
+    for (let i = 0; i < count; i++) {
+      const key = possible[i % possible.length];
+      const delay = Phaser.Math.Between(12, 24);
+      t += delay;
+      this.time.addEvent({
+        delay: t * 1000,
+        callback: () => this.triggerEvent(key)
       });
     }
   }
 
-  updateHUD() {
-    const body = this.player.body as Phaser.Physics.Arcade.Body;
-    const speed = Math.round(body.velocity.length());
-    const dist = Math.max(0, this.finishX - this.player.x);
-    this.hud.speed?.setText(`Speed: ${speed}`);
-    this.hud.fuel?.setText(`Fuel: ${Math.round(this.fuel)}%`);
-    this.hud.timer?.setText(`Time: ${this.timer.toFixed(1)}s`);
-    this.hud.items?.setText(`Items: ${this.collected.size}/5`);
-    this.hud.timeLeft?.setText(`Finish Dist: ${dist.toFixed(0)}m`);
-  }
-
-  handleChaos(dt: number) {
-    const body = this.player.body as Phaser.Physics.Arcade.Body;
-    this.chaosTimer -= dt;
-    if (this.chaosTimer > 0 || this.chaosQueue.length === 0) return;
-    this.chaosTimer = this.chaosCooldown;
-    this.chaosCooldown = Math.max(6, this.chaosCooldown - 1);
-    const event = this.chaosQueue.shift()!;
-    switch (event) {
-      case 'stuck': this.toast('علقنا بالرمل!'); body.velocity.scale(0.4); break;
-      case 'overheat': this.toast('الموتر حار، خف!'); body.velocity.scale(0.6); break;
-      case 'flat': this.toast('كفر مهبط، السرعة محدودة'); body.setMaxSpeed?.(240); break;
-      case 'rain': this.toast('مطر خفيف، امسك الخط'); body.velocity.scale(0.7); break;
-      case 'helicopter': this.toast('تدريب هليكوبتر فوقنا!'); this.cameras.main.shake(150, 0.003); break;
-      case 'camel': this.toast('جمل يقطع الطريق!'); body.velocity.scale(0.5); break;
-      case 'dogs': this.toast('كلاب ضايعه، بوق وتفكنا'); body.velocity.scale(0.7); break;
+  private triggerEvent(key: string) {
+    if (this.isFinished) return;
+    switch (key) {
+      case 'stuck':
+        this.applyEffect('stuck', 4500, 'تغريز خفيف، هد اللعب');
+        break;
+      case 'overheat':
+        this.applyEffect('overheat', 6000, 'حرارة — النيترو موقف');
+        break;
+      case 'flat':
+        this.applyEffect('flat', 8000, 'بنشر، السرعة مقفلة');
+        break;
+      case 'rain':
+        this.applyEffect('rain', 9000, 'مطر — الدعسة تزحلق');
+        break;
+      case 'heli':
+        this.log.push('هيلوكبتر تدريب: افتتاح موسم الرافعية');
+        this.cameras.main.shake(160, 0.004);
+        this.addFloatingText(this.player.x, this.player.y - 60, 'هيلوكبتر التدريب عدى');
+        break;
+      case 'camel':
+        this.spawnCamel();
+        break;
+      case 'dogs':
+        this.spawnDogs();
+        break;
+      default:
+        break;
     }
   }
 
-  toast(msg: string) {
-    this.statusText?.setText(msg);
-    this.tweens.add({ targets: this.statusText, alpha: { from: 1, to: 0 }, duration: 800, onComplete: () => this.statusText?.setAlpha(1) });
+  private applyEffect(key: string, duration: number, msg: string) {
+    this.activeEffects.add(key);
+    this.log.push(msg);
+    this.addFloatingText(this.player.x, this.player.y - 60, msg);
+    this.time.delayedCall(duration, () => this.activeEffects.delete(key));
   }
 
-  hitRock() {
-    (this.player.body as Phaser.Physics.Arcade.Body).velocity.scale(0.5);
-    this.cameras.main.shake(150, 0.004);
-    this.toast('حجر يوقفنا شوي');
-  }
-
-  win() {
-    this.cameras.main.fadeOut(220, 0, 0, 0, () => {
-      this.scene.start('CampScene', { win: true, items: Array.from(this.collected), vehicle: this.vehicle });
+  private spawnCamel() {
+    const y = Phaser.Math.Between(200, this.worldHeight - 200);
+    const camel = this.add.rectangle(-60, y, 80, 44, 0xd4a373).setStrokeStyle(2, 0x8b5e34);
+    this.physics.add.existing(camel, false);
+    (camel.body as Phaser.Physics.Arcade.Body).setVelocityX(180);
+    this.physics.add.overlap(this.player, camel, () => {
+      this.speed *= 0.5;
+      this.cameras.main.shake(100, 0.002);
     });
   }
 
-  fail() {
-    this.scene.start('CampScene', { win: false, items: Array.from(this.collected), vehicle: this.vehicle });
+  private spawnDogs() {
+    const y = this.worldHeight / 2 + Phaser.Math.Between(-80, 80);
+    const dog = this.add.rectangle(this.player.x + 200, y, 50, 28, 0xcbd5e1).setStrokeStyle(2, 0x475569);
+    this.physics.add.existing(dog, false);
+    const body = dog.body as Phaser.Physics.Arcade.Body;
+    body.setVelocityX(-120);
+    this.addFloatingText(dog.x, dog.y - 30, 'كلاب شوارع — زمّر لهم');
+    this.time.addEvent({
+      delay: 200,
+      repeat: 10,
+      callback: () => {
+        if (this.keys.H.isDown) {
+          body.setVelocityX(200);
+          body.setVelocityY(Phaser.Math.Between(-60, 60));
+          dog.setFillStyle(0x22c55e);
+        }
+      }
+    });
+    this.physics.add.overlap(this.player, dog, () => {
+      this.speed *= 0.7;
+    });
+  }
+
+  private addFloatingText(x: number, y: number, msg: string) {
+    const t = this.add.text(x, y, msg, {
+      fontSize: '16px',
+      color: '#fcd34d',
+      fontFamily: 'system-ui'
+    }).setOrigin(0.5);
+    this.tweens.add({
+      targets: t,
+      y: y - 40,
+      alpha: 0,
+      duration: 1200,
+      onComplete: () => t.destroy()
+    });
+  }
+
+  update(_time: number, delta: number) {
+    if (this.isFinished) return;
+    const dt = delta / 1000;
+    this.handleDrive(dt);
+    this.updateHUD();
+    this.bgFar.tilePositionX += this.speed * dt * 0.1;
+    this.bgNear.tilePositionX += this.speed * dt * 0.2;
+  }
+
+  private handleDrive(dt: number) {
+    const stats = VEHICLES[this.vehicle];
+    const forward = this.cursors.up?.isDown || this.keys.W.isDown;
+    const backward = this.cursors.down?.isDown || this.keys.S.isDown;
+    const left = this.cursors.left?.isDown || this.keys.A.isDown;
+    const right = this.cursors.right?.isDown || this.keys.D.isDown;
+    const nitro = this.keys.SHIFT.isDown && !this.activeEffects.has('overheat') && this.fuel > 0;
+
+    let accel = forward ? stats.accel : 0;
+    if (backward) accel -= stats.accel * 0.8;
+    if (this.activeEffects.has('stuck')) accel *= 0.45;
+    if (this.activeEffects.has('rain')) accel *= 0.65;
+    if (nitro) accel *= 1.25;
+
+    const drag = stats.drag + (this.activeEffects.has('flat') ? 260 : 0);
+    const max = this.activeEffects.has('flat') ? stats.max * 0.6 : stats.max;
+    this.speed += accel * dt;
+    this.speed -= this.speed * drag * 0.0018 * dt;
+    if (this.speed < 0) this.speed = 0;
+    if (this.speed > max) this.speed = max;
+
+    let turn = 0;
+    if (left) turn -= 1;
+    if (right) turn += 1;
+    const turnRate = (0.9 + this.speed / (max || 1)) * 1.2;
+    this.angle += turn * turnRate * dt;
+
+    const vx = Math.cos(this.angle) * this.speed;
+    const vy = Math.sin(this.angle) * this.speed;
+    this.player.setVelocity(vx, vy);
+    this.player.setRotation(this.angle + Math.PI / 2);
+
+    const fuelUse = stats.fuelUse * (forward ? 1.1 : 0.4) + (nitro ? 0.8 : 0);
+    this.fuel -= fuelUse * dt;
+    if (this.fuel < 0) {
+      this.fuel = 0;
+      this.speed *= 0.96;
+    }
+    if (nitro && this.fuel <= 5) {
+      this.log.push('النيترو أحرق البنزين');
+    }
+  }
+
+  private updateHUD() {
+    this.elapsed += this.game.loop.delta / 1000;
+    const mins = Math.floor(this.sunset / 60);
+    const secs = Math.max(0, Math.floor(this.sunset % 60));
+    this.hudSpeed.setText(`سرعة: ${Math.round(this.speed)}`);
+    this.hudFuel.setText(`بنزين: ${this.fuel.toFixed(0)}%`);
+    this.hudTime.setText(`الغروب: ${mins}:${secs.toString().padStart(2, '0')}`);
+    const items = ITEM_KEYS.filter((i) => this.inventory.has(i));
+    this.hudItems.setText(`أغراض: ${items.length ? items.join(', ') : 'لسه ناقص'}`);
+  }
+
+  private finishRun(success: boolean, reason: string) {
+    if (this.isFinished) return;
+    this.isFinished = true;
+    this.cameras.main.fadeOut(250, 0, 0, 0);
+    this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
+      this.scene.start('CampScene', {
+        success,
+        items: Array.from(this.inventory),
+        timeSpent: this.elapsed,
+        vehicle: this.vehicle,
+        log: this.log,
+        reason
+      });
+    });
   }
 }
