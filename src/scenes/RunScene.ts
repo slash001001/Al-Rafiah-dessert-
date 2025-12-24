@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { VisualFactory } from '../visual/VisualFactory';
 
 type VehicleType = 'gmc' | 'prado';
 
@@ -6,46 +7,39 @@ interface RunData {
   vehicle: VehicleType;
 }
 
-interface ChaosEvent {
-  key: string;
-  label: string;
-  duration: number;
-  effect: () => void;
-}
-
-const VEHICLES: Record<VehicleType, { color: number; shadow: number; accel: number; drag: number; max: number; fuelUse: number }> = {
-  gmc: { color: 0x111111, shadow: 0x000000, accel: 420, drag: 220, max: 320, fuelUse: 0.25 },
-  prado: { color: 0x6b4a2d, shadow: 0x2d1a0a, accel: 520, drag: 180, max: 360, fuelUse: 0.2 }
-};
-
 const ITEM_KEYS = ['salt', 'water', 'charcoal', 'lighter', 'hummus'] as const;
 type ItemKey = (typeof ITEM_KEYS)[number];
+
+const VEHICLES: Record<VehicleType, { accel: number; drag: number; max: number; fuelUse: number }> = {
+  gmc: { accel: 420, drag: 220, max: 320, fuelUse: 0.25 },
+  prado: { accel: 520, drag: 180, max: 360, fuelUse: 0.2 }
+};
 
 export default class RunScene extends Phaser.Scene {
   private vehicle: VehicleType = 'gmc';
   private player!: Phaser.Physics.Arcade.Image;
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private keys!: { [k: string]: Phaser.Input.Keyboard.Key };
-  private worldWidth = 4200;
-  private worldHeight = 1600;
-  private bgFar!: Phaser.GameObjects.TileSprite;
-  private bgNear!: Phaser.GameObjects.TileSprite;
+  private worldWidth = 4800;
+  private worldHeight = 1400;
+  private sky!: Phaser.GameObjects.Image;
+  private duneLayers: { sprite: Phaser.GameObjects.TileSprite; speed: number }[] = [];
+  private road!: Phaser.GameObjects.TileSprite;
   private hudSpeed!: Phaser.GameObjects.Text;
   private hudFuel!: Phaser.GameObjects.Text;
   private hudTime!: Phaser.GameObjects.Text;
   private hudItems!: Phaser.GameObjects.Text;
+  private minimapDot!: Phaser.GameObjects.Ellipse;
   private fuel = 110;
   private speed = 0;
-  private angle = -0.02;
+  private angle = -0.1;
   private sunset = 210; // seconds ~3.5 min
   private elapsed = 0;
   private inventory: Set<ItemKey> = new Set();
   private isFinished = false;
   private finishZone!: Phaser.GameObjects.Rectangle;
-  private eventsQueue: ChaosEvent[] = [];
   private activeEffects: Set<string> = new Set();
   private log: string[] = [];
-  private lastTrail = 0;
 
   constructor() {
     super('RunScene');
@@ -56,7 +50,7 @@ export default class RunScene extends Phaser.Scene {
   }
 
   preload() {
-    this.createTextures();
+    VisualFactory.ensureAll(this);
   }
 
   create() {
@@ -64,15 +58,20 @@ export default class RunScene extends Phaser.Scene {
     this.cameras.main.setBackgroundColor('#0b0f14');
     this.cameras.main.fadeIn(200, 0, 0, 0);
 
-    this.bgFar = this.add.tileSprite(width / 2, height / 2, width, height, 'sand-far').setScrollFactor(0);
-    this.bgNear = this.add.tileSprite(width / 2, height / 2, width, height, 'sand-near').setScrollFactor(0);
+    this.sky = this.add.image(width / 2, height / 2, 'sky').setScrollFactor(0);
+    this.sky.setDisplaySize(width, height);
+
+    this.createDuneLayers(width, height);
+    this.createRoadLayer();
 
     this.physics.world.setBounds(0, 0, this.worldWidth, this.worldHeight);
 
     const stats = VEHICLES[this.vehicle];
-    this.player = this.physics.add.image(180, this.worldHeight / 2, `car-${this.vehicle}`);
+    const roadY = this.worldHeight - 140;
+    const startY = roadY - 50;
+    this.player = this.physics.add.image(180, startY, `car-${this.vehicle}`);
     this.player.setDamping(true).setDrag(stats.drag).setMaxVelocity(stats.max).setAngularDrag(600);
-    this.player.setSize(48, 24);
+    this.player.setSize(52, 28);
     this.player.setCollideWorldBounds(true);
 
     this.createStops();
@@ -93,7 +92,7 @@ export default class RunScene extends Phaser.Scene {
     }) as any;
 
     this.cameras.main.startFollow(this.player, true, 0.12, 0.12);
-    this.cameras.main.setDeadzone(220, 140);
+    this.cameras.main.setDeadzone(240, 160);
     this.cameras.main.setBounds(0, 0, this.worldWidth, this.worldHeight);
 
     this.scheduleChaos();
@@ -111,96 +110,81 @@ export default class RunScene extends Phaser.Scene {
     });
   }
 
-  private createTextures() {
-    const g = this.add.graphics();
-    g.fillStyle(0x0b0f14);
-    g.fillRect(0, 0, 2, 2);
-    g.generateTexture('void', 2, 2);
-    g.clear();
+  private createDuneLayers(screenW: number, screenH: number) {
+    const layer3 = this.add.tileSprite(screenW / 2, screenH / 2 + 60, screenW, screenH, 'dune-3').setScrollFactor(0);
+    const layer2 = this.add.tileSprite(screenW / 2, screenH / 2 + 30, screenW, screenH, 'dune-2').setScrollFactor(0);
+    const layer1 = this.add.tileSprite(screenW / 2, screenH / 2, screenW, screenH, 'dune-1').setScrollFactor(0);
+    layer3.setTileScale(1.8, 2.4);
+    layer2.setTileScale(1.6, 2.2);
+    layer1.setTileScale(1.4, 2);
+    layer3.setTint(0xd4a373);
+    layer2.setTint(0xe1ac79);
+    layer1.setTint(0xf2c89a);
+    this.duneLayers = [
+      { sprite: layer3, speed: 0.05 },
+      { sprite: layer2, speed: 0.12 },
+      { sprite: layer1, speed: 0.18 }
+    ];
+  }
 
-    const makeNoise = (key: string, color: number) => {
-      const size = 128;
-      g.clear();
-      for (let i = 0; i < 350; i++) {
-        const x = Phaser.Math.Between(0, size);
-        const y = Phaser.Math.Between(0, size);
-        const alpha = Phaser.Math.FloatBetween(0.03, 0.12);
-        g.fillStyle(color, alpha);
-        g.fillRect(x, y, 2, 2);
-      }
-      g.generateTexture(key, size, size);
-    };
-    makeNoise('sand-far', 0xf0d9a1);
-    makeNoise('sand-near', 0xd9a066);
-
-    const makeCar = (key: string, body: number, shadow: number) => {
-      g.clear();
-      g.fillStyle(shadow, 0.6);
-      g.fillRoundedRect(4, 12, 84, 34, 8);
-      g.fillStyle(body, 1);
-      g.fillRoundedRect(0, 8, 90, 36, 8);
-      g.fillStyle(0x1e1e1e, 1);
-      g.fillRect(8, 12, 74, 16);
-      g.fillStyle(0xd1d1d1);
-      g.fillRect(16, 16, 16, 12);
-      g.fillRect(58, 16, 16, 12);
-      g.generateTexture(key, 92, 52);
-    };
-    makeCar('car-gmc', VEHICLES.gmc.color, VEHICLES.gmc.shadow);
-    makeCar('car-prado', VEHICLES.prado.color, VEHICLES.prado.shadow);
-
-    g.clear();
-    g.fillStyle(0x70543c);
-    g.fillCircle(12, 12, 12);
-    g.fillStyle(0x4a3424);
-    g.fillCircle(10, 10, 10);
-    g.generateTexture('rock', 24, 24);
-
-    g.clear();
-    g.fillStyle(0xffffff);
-    g.fillCircle(8, 8, 8);
-    g.generateTexture('puff', 16, 16);
-
-    g.clear();
-    g.fillStyle(0x1f2937, 0.7);
-    g.fillRoundedRect(0, 0, 210, 86, 8);
-    g.generateTexture('hud-panel', 210, 86);
-
-    g.clear();
-    g.fillStyle(0xffe066);
-    g.fillRect(0, 0, 120, 40);
-    g.fillStyle(0x111111);
-    g.fillRect(0, 18, 120, 6);
-    g.generateTexture('finish', 120, 40);
+  private createRoadLayer() {
+    const roadY = this.worldHeight - 140;
+    this.road = this.add.tileSprite(this.worldWidth / 2, roadY, this.worldWidth, 160, 'road').setOrigin(0.5, 1);
+    this.road.setDepth(1);
   }
 
   private createHUD() {
     const panel = this.add.image(18, 18, 'hud-panel').setOrigin(0).setScrollFactor(0);
-    this.hudSpeed = this.add.text(28, 26, 'سرعة: 0', this.hudStyle()).setScrollFactor(0);
-    this.hudFuel = this.add.text(28, 48, 'بنزين: 100', this.hudStyle()).setScrollFactor(0);
-    this.hudTime = this.add.text(28, 70, 'غروب: 0:00', this.hudStyle()).setScrollFactor(0);
-    this.hudItems = this.add.text(240, 30, 'أغراض: -', this.hudStyle()).setScrollFactor(0);
+    this.hudSpeed = this.add.text(32, 32, 'السرعة: 0', this.hudStyle()).setScrollFactor(0);
+    this.hudFuel = this.add.text(32, 58, 'البنزين: 100', this.hudStyle()).setScrollFactor(0);
+    this.hudTime = this.add.text(32, 84, 'الغروب: 0:00', this.hudStyle()).setScrollFactor(0);
+    this.hudItems = this.add.text(32, 110, 'الأغراض: -', this.hudStyle()).setScrollFactor(0);
     this.children.bringToTop(panel);
+
+    const minimap = this.add.image(this.scale.width - 238, 18, 'minimap').setOrigin(0).setScrollFactor(0);
+    const g = this.add.graphics().setScrollFactor(0).setDepth(5);
+    const pad = 12;
+    g.lineStyle(3, 0x38bdf8, 0.8);
+    g.beginPath();
+    g.moveTo(minimap.x + pad, minimap.y + pad + 60);
+    g.lineTo(minimap.x + 220 - pad, minimap.y + pad + 60);
+    g.strokePath();
+
+    const stopsPx = [0.12, 0.3, 0.45];
+    stopsPx.forEach((p) => {
+      g.fillStyle(0xfcd34d, 1);
+      g.fillCircle(minimap.x + pad + 196 * p, minimap.y + pad + 60, 5);
+    });
+
+    this.minimapDot = this.add.ellipse(minimap.x + pad, minimap.y + pad + 60, 12, 12, 0x22c55e).setScrollFactor(0).setDepth(6);
+
+    this.add.text(minimap.x + 110, minimap.y + 18, 'Rafiah — Dammam dunes', {
+      fontSize: '12px',
+      color: '#bae6fd',
+      fontFamily: 'system-ui'
+    }).setOrigin(0.5, 0).setScrollFactor(0);
   }
 
   private hudStyle() {
     return {
-      fontSize: '16px',
+      fontSize: '18px',
       fontFamily: 'system-ui, sans-serif',
       color: '#e5e7eb'
     };
   }
 
   private createStops() {
-    const stops: { x: number; label: string; grants: ItemKey[] }[] = [
-      { x: 420, label: 'محطة بنزين', grants: ['water'] },
-      { x: 750, label: 'مطعم', grants: ['hummus'] },
-      { x: 1050, label: 'بقالة', grants: ['salt', 'lighter'] }
+    const roadY = this.worldHeight - 200;
+    const stops: { x: number; label: string; grants: ItemKey[]; tex: string }[] = [
+      { x: 520, label: 'محطة بنزين', grants: ['water'], tex: 'poi-gas' },
+      { x: 1050, label: 'مطعم', grants: ['hummus'], tex: 'poi-food' },
+      { x: 1580, label: 'بقالة', grants: ['salt', 'lighter'], tex: 'poi-shop' }
     ];
     stops.forEach((stop) => {
-      const pad = this.add.rectangle(stop.x, this.worldHeight / 2 - 120, 120, 80, 0x2e86ab, 0.5);
+      const pad = this.add.rectangle(stop.x, roadY, 140, 110, 0xffffff, 0.01);
       this.physics.add.existing(pad, true);
-      this.add.text(stop.x, this.worldHeight / 2 - 170, stop.label, { fontSize: '16px', color: '#ffffff' }).setOrigin(0.5);
+      this.add.image(stop.x, roadY - 30, stop.tex).setDepth(2).setScale(0.9);
+      this.add.text(stop.x, roadY - 90, stop.label, { fontSize: '18px', color: '#f8fafc', fontFamily: 'system-ui' }).setOrigin(0.5);
       this.physics.add.overlap(this.player, pad, () => {
         stop.grants.forEach((i) => this.inventory.add(i));
         this.log.push(`أخذت ${stop.grants.join(', ')}`);
@@ -212,8 +196,8 @@ export default class RunScene extends Phaser.Scene {
   private createDunes() {
     const rocks = this.physics.add.staticGroup();
     for (let i = 0; i < 12; i++) {
-      const x = Phaser.Math.Between(1500, this.worldWidth - 400);
-      const y = Phaser.Math.Between(200, this.worldHeight - 200);
+      const x = Phaser.Math.Between(1900, this.worldWidth - 500);
+      const y = Phaser.Math.Between(240, this.worldHeight - 240);
       rocks.create(x, y, 'rock').setScale(1.2).refreshBody();
     }
     this.physics.add.collider(this.player, rocks, () => {
@@ -225,9 +209,10 @@ export default class RunScene extends Phaser.Scene {
 
   private createFinish() {
     const zoneX = this.worldWidth - 200;
-    this.finishZone = this.add.rectangle(zoneX, this.worldHeight / 2, 140, 220, 0x4ade80, 0.2);
-    this.add.image(zoneX, this.worldHeight / 2 - 80, 'finish').setAngle(-4);
-    const flagText = this.add.text(zoneX, this.worldHeight / 2 + 60, 'قمة الطعس', {
+    const zoneY = 320;
+    this.finishZone = this.add.rectangle(zoneX, zoneY, 180, 240, 0x4ade80, 0.14);
+    this.add.image(zoneX, zoneY - 120, 'finish').setAngle(-6);
+    this.add.text(zoneX, zoneY + 80, 'قمة الطعس', {
       fontSize: '18px',
       color: '#fef08a',
       fontFamily: 'system-ui'
@@ -242,12 +227,18 @@ export default class RunScene extends Phaser.Scene {
       loop: true,
       callback: () => {
         if (!this.player || this.isFinished) return;
-        const puff = this.add.image(this.player.x, this.player.y, 'puff').setTint(0xf1c27d).setAlpha(0.6);
+        const puff = this.add.image(
+          this.player.x - Math.cos(this.angle) * 18,
+          this.player.y - Math.sin(this.angle) * 18,
+          'puff'
+        )
+          .setTint(0xf1c27d)
+          .setAlpha(0.7);
         this.tweens.add({
           targets: puff,
           alpha: 0,
-          scale: 2,
-          duration: 500,
+          scale: 1.9,
+          duration: 520,
           onComplete: () => puff.destroy()
         });
       }
@@ -362,8 +353,12 @@ export default class RunScene extends Phaser.Scene {
     const dt = delta / 1000;
     this.handleDrive(dt);
     this.updateHUD();
-    this.bgFar.tilePositionX += this.speed * dt * 0.1;
-    this.bgNear.tilePositionX += this.speed * dt * 0.2;
+    this.duneLayers.forEach((l) => {
+      l.sprite.tilePositionX += this.speed * dt * l.speed;
+    });
+    const fade = Phaser.Math.Clamp((this.player.x - 1800) / 900, 0, 1);
+    this.road.setAlpha(1 - fade * 0.8);
+    this.updateMinimap();
   }
 
   private handleDrive(dt: number) {
@@ -413,11 +408,19 @@ export default class RunScene extends Phaser.Scene {
     this.elapsed += this.game.loop.delta / 1000;
     const mins = Math.floor(this.sunset / 60);
     const secs = Math.max(0, Math.floor(this.sunset % 60));
-    this.hudSpeed.setText(`سرعة: ${Math.round(this.speed)}`);
-    this.hudFuel.setText(`بنزين: ${this.fuel.toFixed(0)}%`);
+    this.hudSpeed.setText(`السرعة: ${Math.round(this.speed)}`);
+    this.hudFuel.setText(`البنزين: ${this.fuel.toFixed(0)}%`);
     this.hudTime.setText(`الغروب: ${mins}:${secs.toString().padStart(2, '0')}`);
     const items = ITEM_KEYS.filter((i) => this.inventory.has(i));
-    this.hudItems.setText(`أغراض: ${items.length ? items.join(', ') : 'لسه ناقص'}`);
+    this.hudItems.setText(`الأغراض: ${items.length ? items.join(', ') : 'لسه ناقص'}`);
+  }
+
+  private updateMinimap() {
+    if (!this.minimapDot) return;
+    const pad = 12;
+    const rel = Phaser.Math.Clamp(this.player.x / this.worldWidth, 0, 1);
+    const baseX = this.scale.width - 238 + pad;
+    this.minimapDot.setPosition(baseX + 196 * rel, 18 + pad + 60);
   }
 
   private finishRun(success: boolean, reason: string) {
