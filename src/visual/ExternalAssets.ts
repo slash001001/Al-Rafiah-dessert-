@@ -2,11 +2,12 @@ import Phaser from 'phaser';
 import { ArtKeys } from './ArtKeys';
 
 const files: Record<string, string> = {
-  [ArtKeys.SKY_GRAD]: 'bg_sky.png',
-  [ArtKeys.DUNE_L1]: 'dune_l1.png',
-  [ArtKeys.DUNE_L2]: 'dune_l2.png',
-  [ArtKeys.DUNE_L3]: 'dune_l3.png',
-  [ArtKeys.ROAD_TILE]: 'road_tile.png',
+  [ArtKeys.BG_SKY]: 'bg_sky.png',
+  [ArtKeys.DUNE_NEAR]: 'dune_near.png',
+  [ArtKeys.DUNE_MID]: 'dune_mid.png',
+  [ArtKeys.DUNE_FAR]: 'dune_far.png',
+  [ArtKeys.GROUND_ROAD]: 'ground_road.png',
+  [ArtKeys.GROUND_DUNES]: 'ground_dunes.png',
   [ArtKeys.POI_STATION]: 'poi_station.png',
   [ArtKeys.POI_SHOP]: 'poi_shop.png',
   [ArtKeys.POI_RESTAURANT]: 'poi_restaurant.png',
@@ -18,9 +19,9 @@ const files: Record<string, string> = {
   [ArtKeys.VEH_GMC]: 'veh_gmc.png',
   [ArtKeys.VEH_PRADO]: 'veh_prado.png',
   [ArtKeys.VEH_SHADOW]: 'veh_shadow.png',
-  [ArtKeys.HELICOPTER]: 'heli.png',
-  [ArtKeys.CAMEL]: 'camel.png',
-  [ArtKeys.DOG]: 'dog.png',
+  [ArtKeys.HELICOPTER]: 'event_helicopter.png',
+  [ArtKeys.CAMEL]: 'event_camel.png',
+  [ArtKeys.DOG]: 'event_dog.png',
   [ArtKeys.PUFF]: 'puff.png',
   [ArtKeys.FINISH_FLAG]: 'finish_flag.png'
 };

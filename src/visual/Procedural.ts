@@ -18,7 +18,7 @@ const palette = {
 export function ensureProceduralArt(scene: Phaser.Scene) {
   makeSky(scene);
   makeDunes(scene);
-  makeRoad(scene);
+  makeGround(scene);
   makePOI(scene);
   makeIcons(scene);
   makeCars(scene);
@@ -26,7 +26,7 @@ export function ensureProceduralArt(scene: Phaser.Scene) {
 }
 
 function makeSky(scene: Phaser.Scene) {
-  if (scene.textures.exists(ArtKeys.SKY_GRAD)) return;
+  if (scene.textures.exists(ArtKeys.BG_SKY)) return;
   const g = scene.add.graphics();
   const w = 32;
   const h = 256;
@@ -37,7 +37,7 @@ function makeSky(scene: Phaser.Scene) {
     g.fillStyle(Phaser.Display.Color.GetColor(c.r, c.g, c.b), 1);
     g.fillRect(0, i, w, 1);
   }
-  g.generateTexture(ArtKeys.SKY_GRAD, w, h);
+  g.generateTexture(ArtKeys.BG_SKY, w, h);
   destroyG(g);
 }
 
@@ -61,24 +61,38 @@ function makeDunes(scene: Phaser.Scene) {
     g.generateTexture(key, w, h);
     destroyG(g);
   };
-  dune(ArtKeys.DUNE_L3, palette.duneFar, 12);
-  dune(ArtKeys.DUNE_L2, palette.duneMid, 22);
-  dune(ArtKeys.DUNE_L1, palette.duneNear, 32);
+  dune(ArtKeys.DUNE_FAR, palette.duneFar, 12);
+  dune(ArtKeys.DUNE_MID, palette.duneMid, 22);
+  dune(ArtKeys.DUNE_NEAR, palette.duneNear, 32);
 }
 
-function makeRoad(scene: Phaser.Scene) {
-  if (scene.textures.exists(ArtKeys.ROAD_TILE)) return;
-  const g = scene.add.graphics();
-  const w = 256;
-  const h = 120;
-  g.fillStyle(palette.road, 1);
-  g.fillRect(0, h - 100, w, 100);
-  g.fillStyle(0x111827, 1);
-  g.fillRect(0, h - 118, w, 18);
-  g.fillStyle(0xfefefe, 0.9);
-  for (let x = 10; x < w; x += 40) g.fillRect(x, h - 60, 20, 6);
-  g.generateTexture(ArtKeys.ROAD_TILE, w, h);
-  destroyG(g);
+function makeGround(scene: Phaser.Scene) {
+  if (!scene.textures.exists(ArtKeys.GROUND_ROAD)) {
+    const g = scene.add.graphics();
+    const w = 256;
+    const h = 120;
+    g.fillStyle(palette.road, 1);
+    g.fillRect(0, h - 100, w, 100);
+    g.fillStyle(0x111827, 1);
+    g.fillRect(0, h - 118, w, 18);
+    g.fillStyle(0xfefefe, 0.9);
+    for (let x = 10; x < w; x += 40) g.fillRect(x, h - 60, 20, 6);
+    g.generateTexture(ArtKeys.GROUND_ROAD, w, h);
+    destroyG(g);
+  }
+  if (!scene.textures.exists(ArtKeys.GROUND_DUNES)) {
+    const g = scene.add.graphics();
+    const w = 128;
+    const h = 128;
+    g.fillStyle(palette.duneNear, 1);
+    g.fillRect(0, 0, w, h);
+    g.fillStyle(palette.duneMid, 0.3);
+    for (let i = 0; i < 6; i++) {
+      g.fillEllipse(Phaser.Math.Between(10, 118), Phaser.Math.Between(10, 118), Phaser.Math.Between(30, 60), Phaser.Math.Between(12, 26));
+    }
+    g.generateTexture(ArtKeys.GROUND_DUNES, w, h);
+    destroyG(g);
+  }
 }
 
 function makePOI(scene: Phaser.Scene) {

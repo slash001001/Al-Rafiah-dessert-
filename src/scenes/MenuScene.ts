@@ -24,10 +24,10 @@ export default class MenuScene extends Phaser.Scene {
   create() {
     ensureProceduralArt(this);
     const { width: wbg, height: hbg } = this.scale;
-    const sky = this.add.tileSprite(wbg / 2, hbg / 2, wbg, hbg, ArtKeys.SKY_GRAD).setScrollFactor(0);
-    const l3 = this.add.tileSprite(wbg / 2, hbg / 2 + 60, wbg, hbg, ArtKeys.DUNE_L3).setScrollFactor(0);
-    const l2 = this.add.tileSprite(wbg / 2, hbg / 2 + 30, wbg, hbg, ArtKeys.DUNE_L2).setScrollFactor(0);
-    const l1 = this.add.tileSprite(wbg / 2, hbg / 2, wbg, hbg, ArtKeys.DUNE_L1).setScrollFactor(0);
+    const sky = this.add.tileSprite(wbg / 2, hbg / 2, wbg, hbg, ArtKeys.BG_SKY).setScrollFactor(0);
+    const l3 = this.add.tileSprite(wbg / 2, hbg / 2 + 60, wbg, hbg, ArtKeys.DUNE_FAR).setScrollFactor(0);
+    const l2 = this.add.tileSprite(wbg / 2, hbg / 2 + 30, wbg, hbg, ArtKeys.DUNE_MID).setScrollFactor(0);
+    const l1 = this.add.tileSprite(wbg / 2, hbg / 2, wbg, hbg, ArtKeys.DUNE_NEAR).setScrollFactor(0);
     this.dunes = [l3, l2, l1];
     const { width, height } = this.scale;
     this.cameras.main.setBackgroundColor('#0b0f14');

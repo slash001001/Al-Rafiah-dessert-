@@ -1,7 +1,6 @@
 import Phaser from 'phaser';
 import { ItemKey, itemMeta, essentials, getMissingEssentials } from '../data/items';
 import { ensureProceduralArt } from '../visual/Procedural';
-import { preloadExternalAssets } from '../visual/ExternalAssets';
 import { ArtKeys } from '../visual/ArtKeys';
 import { Feel } from '../systems/Feel';
 import { PauseMenu } from '../ui/PauseMenu';
@@ -28,9 +27,7 @@ interface POI {
   used: boolean;
 }
 
-interface DogSprite extends Phaser.GameObjects.Rectangle {
-  body: Phaser.Physics.Arcade.Body;
-}
+type DogSprite = Phaser.GameObjects.GameObject & { body: Phaser.Physics.Arcade.Body };
 
 export default class RunScene extends Phaser.Scene {
   private vehicle: Vehicle = 'gmc';
@@ -42,9 +39,8 @@ export default class RunScene extends Phaser.Scene {
   private worldHeight = 1400;
   private duneLayers: { sprite: Phaser.GameObjects.TileSprite; speed: number }[] = [];
   private roadLayer!: Phaser.GameObjects.TileSprite;
+  private groundLayer!: Phaser.GameObjects.TileSprite;
   private sky!: Phaser.GameObjects.TileSprite;
-  private cc0Ground?: Phaser.GameObjects.TileSprite;
-  private cc0Horizon?: Phaser.GameObjects.Image;
   private rainOverlay?: Phaser.GameObjects.Graphics;
   private fuel = 100;
   private speed = 0;
@@ -96,7 +92,6 @@ export default class RunScene extends Phaser.Scene {
   }
 
   preload() {
-    preloadExternalAssets(this);
     ensureProceduralArt(this);
   }
 
@@ -113,21 +108,10 @@ export default class RunScene extends Phaser.Scene {
     this.toast = new ToastManager(this);
     this.banner = this.createBanner();
 
-    this.sky = this.add.tileSprite(width / 2, height / 2, width, height, ArtKeys.SKY_GRAD).setScrollFactor(0);
-    const hasNewArt =
-      this.textures.exists('bg_desert_clean') &&
-      this.textures.exists('bg_dunes_1080') &&
-      this.textures.exists('veh_gmc_cc0') &&
-      this.textures.exists('veh_prado_cc0');
-
-    if (hasNewArt) {
-      this.cc0Horizon = this.add.image(0, 0, 'bg_dunes_1080').setOrigin(0, 0).setScrollFactor(0);
-      this.cc0Horizon.setDisplaySize(width, height);
-      this.cc0Ground = this.add.tileSprite(0, 0, width, height, 'bg_desert_clean').setOrigin(0, 0).setScrollFactor(0);
-    } else {
-      this.createDuneLayers(width, height);
-      this.createRoadLayer();
-    }
+    this.sky = this.add.tileSprite(width / 2, height / 2, width, height, ArtKeys.BG_SKY).setScrollFactor(0);
+    this.createDuneLayers(width, height);
+    this.createGroundLayer();
+    this.createRoadLayer();
 
     this.physics.world.setBounds(0, 0, this.worldWidth, this.worldHeight);
     const stats = this.vehicleStats();
@@ -169,6 +153,18 @@ export default class RunScene extends Phaser.Scene {
     this.cameras.main.startFollow(this.player, true, 0.12, 0.12);
     this.cameras.main.setDeadzone(240, 160);
     this.cameras.main.setBounds(0, 0, this.worldWidth, this.worldHeight);
+    const debug = new URL(window.location.href).searchParams.get('debug') === '1';
+    if (debug) {
+      const artMode = (this.registry.get('artMode') as string) || 'procedural';
+      this.add
+        .text(12, this.scale.height - 14, `ART MODE: ${artMode}`, {
+          fontSize: '12px',
+          color: '#e5e7eb',
+          fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace'
+        })
+        .setScrollFactor(0)
+        .setDepth(40);
+    }
     this.input.keyboard?.on('keydown-ESC', () => {
       this.isPaused = !this.isPaused;
       this.pauseMenu[this.isPaused ? 'show' : 'hide']();
@@ -204,9 +200,9 @@ export default class RunScene extends Phaser.Scene {
   }
 
   private createDuneLayers(screenW: number, screenH: number) {
-    const l3 = this.add.tileSprite(screenW / 2, screenH / 2 + 60, screenW, screenH, ArtKeys.DUNE_L3).setScrollFactor(0);
-    const l2 = this.add.tileSprite(screenW / 2, screenH / 2 + 30, screenW, screenH, ArtKeys.DUNE_L2).setScrollFactor(0);
-    const l1 = this.add.tileSprite(screenW / 2, screenH / 2, screenW, screenH, ArtKeys.DUNE_L1).setScrollFactor(0);
+    const l3 = this.add.tileSprite(screenW / 2, screenH / 2 + 60, screenW, screenH, ArtKeys.DUNE_FAR).setScrollFactor(0);
+    const l2 = this.add.tileSprite(screenW / 2, screenH / 2 + 30, screenW, screenH, ArtKeys.DUNE_MID).setScrollFactor(0);
+    const l1 = this.add.tileSprite(screenW / 2, screenH / 2, screenW, screenH, ArtKeys.DUNE_NEAR).setScrollFactor(0);
     l3.setTileScale(1.6, 2.2);
     l2.setTileScale(1.4, 2);
     l1.setTileScale(1.2, 1.8);
@@ -217,10 +213,16 @@ export default class RunScene extends Phaser.Scene {
     ];
   }
 
+  private createGroundLayer() {
+    this.groundLayer = this.add
+      .tileSprite(this.worldWidth / 2, this.worldHeight / 2, this.worldWidth, this.worldHeight, ArtKeys.GROUND_DUNES)
+      .setDepth(0.4);
+  }
+
   private createRoadLayer() {
     const roadY = this.worldHeight - 140;
     this.roadLayer = this.add
-      .tileSprite(this.worldWidth / 2, roadY, this.worldWidth, 140, ArtKeys.ROAD_TILE)
+      .tileSprite(this.worldWidth / 2, roadY, this.worldWidth, 140, ArtKeys.GROUND_ROAD)
       .setOrigin(0.5, 1)
       .setAlpha(1);
     this.roadLayer.setDepth(1);
@@ -229,9 +231,9 @@ export default class RunScene extends Phaser.Scene {
   private createPOIs() {
     const roadY = this.worldHeight - 200;
     const data: { x: number; type: POI['type']; tex: string; label: string }[] = [
-      { x: 520, type: 'station', tex: 'poi_station', label: 'محطة' },
-      { x: 1100, type: 'shop', tex: 'poi_shop', label: 'بقالة' },
-      { x: 1650, type: 'restaurant', tex: 'poi_restaurant', label: 'مطعم' }
+      { x: 520, type: 'station', tex: ArtKeys.POI_STATION, label: 'محطة' },
+      { x: 1100, type: 'shop', tex: ArtKeys.POI_SHOP, label: 'بقالة' },
+      { x: 1650, type: 'restaurant', tex: ArtKeys.POI_RESTAURANT, label: 'مطعم' }
     ];
     data.forEach((d) => {
       const sprite = this.add.image(d.x, roadY, d.tex).setDepth(2).setOrigin(0.5, 1);
@@ -562,7 +564,10 @@ export default class RunScene extends Phaser.Scene {
 
   private spawnHelicopter() {
     const y = 120;
-    const heli = this.add.rectangle(-80, y, 80, 28, 0x38bdf8).setStrokeStyle(2, 0x0ea5e9).setDepth(15);
+    const useSprite = this.textures.exists(ArtKeys.HELICOPTER);
+    const heli = useSprite
+      ? (this.add.image(-80, y, ArtKeys.HELICOPTER).setDepth(15) as Phaser.GameObjects.Image)
+      : (this.add.rectangle(-80, y, 80, 28, 0x38bdf8).setStrokeStyle(2, 0x0ea5e9).setDepth(15) as any);
     this.tweens.add({
       targets: heli,
       x: this.worldWidth + 120,
@@ -576,7 +581,9 @@ export default class RunScene extends Phaser.Scene {
 
   private spawnCamel() {
     const y = Phaser.Math.Between(240, this.worldHeight - 240);
-    const camel = this.add.rectangle(-60, y, 80, 44, 0xd4a373).setStrokeStyle(2, 0x8b5e34).setDepth(10);
+    const camel = this.textures.exists(ArtKeys.CAMEL)
+      ? (this.add.image(-60, y, ArtKeys.CAMEL).setDepth(10) as Phaser.GameObjects.Image)
+      : (this.add.rectangle(-60, y, 80, 44, 0xd4a373).setStrokeStyle(2, 0x8b5e34).setDepth(10) as any);
     this.physics.add.existing(camel, false);
     const body = camel.body as Phaser.Physics.Arcade.Body;
     body.setVelocityX(160);
@@ -592,14 +599,17 @@ export default class RunScene extends Phaser.Scene {
     const count = randInt(this.rng, 2, 4);
     for (let i = 0; i < count; i++) {
       const y = this.worldHeight / 2 + Phaser.Math.Between(-80, 80);
-      const dog = this.add.rectangle(this.player.x + 200 + i * 20, y, 46, 26, 0xcbd5e1).setStrokeStyle(2, 0x475569).setDepth(9) as DogSprite;
+      const hasDog = this.textures.exists(ArtKeys.DOG);
+      const dog = hasDog
+        ? (this.add.image(this.player.x + 200 + i * 20, y, ArtKeys.DOG).setDepth(9) as DogSprite)
+        : (this.add.rectangle(this.player.x + 200 + i * 20, y, 46, 26, 0xcbd5e1).setStrokeStyle(2, 0x475569).setDepth(9) as DogSprite);
       this.physics.add.existing(dog, false);
       const body = dog.body as Phaser.Physics.Arcade.Body;
       body.setVelocityX(-120 - i * 10);
       this.dogs.push(dog);
       this.physics.add.overlap(this.player, dog, () => {
         this.speed *= 0.7;
-        dog.setFillStyle(0x22c55e);
+        if ('setFillStyle' in dog) (dog as any).setFillStyle?.(0x22c55e);
         body.setVelocity(180, Phaser.Math.Between(-60, 60));
         this.pushFunny('كلب طق جونا وهرب');
         Feel.hitStop(this, 50);
@@ -616,7 +626,7 @@ export default class RunScene extends Phaser.Scene {
         this.dogs.forEach((dog) => {
           const body = dog.body;
           body.setVelocity(200, Phaser.Math.Between(-80, 80));
-          dog.setFillStyle(0x22c55e);
+          if ('setFillStyle' in dog) (dog as any).setFillStyle?.(0x22c55e);
         });
       }
     }
@@ -798,7 +808,10 @@ export default class RunScene extends Phaser.Scene {
     if (this.duneLayers.length) {
       this.duneLayers.forEach((l) => (l.sprite.tilePositionX += scroll * l.speed));
     }
-    if (this.cc0Ground) this.cc0Ground.tilePositionX = this.cameras.main.scrollX * 0.9;
+    if (this.groundLayer) {
+      this.groundLayer.tilePositionX = this.player.x * 0.35;
+      this.groundLayer.tilePositionY = this.player.y * 0.05;
+    }
     this.sky.tilePositionY = (RUN_SECONDS - this.timeLeft) * 0.2;
   }
 
