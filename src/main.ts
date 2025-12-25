@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import PreloadScene from './scenes/PreloadScene';
 import MenuScene from './scenes/MenuScene';
 import RunScene from './scenes/RunScene';
 import CampScene from './scenes/CampScene';
@@ -23,7 +24,7 @@ const config: Phaser.Types.Core.GameConfig = {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH
   },
-  scene: [MenuScene, RunScene, CampScene]
+  scene: [PreloadScene, MenuScene, RunScene, CampScene]
 };
 
 const game = new Phaser.Game(config);

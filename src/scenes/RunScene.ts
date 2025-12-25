@@ -43,6 +43,8 @@ export default class RunScene extends Phaser.Scene {
   private duneLayers: { sprite: Phaser.GameObjects.TileSprite; speed: number }[] = [];
   private roadLayer!: Phaser.GameObjects.TileSprite;
   private sky!: Phaser.GameObjects.TileSprite;
+  private cc0Ground?: Phaser.GameObjects.TileSprite;
+  private cc0Horizon?: Phaser.GameObjects.Image;
   private rainOverlay?: Phaser.GameObjects.Graphics;
   private fuel = 100;
   private speed = 0;
@@ -112,17 +114,32 @@ export default class RunScene extends Phaser.Scene {
     this.banner = this.createBanner();
 
     this.sky = this.add.tileSprite(width / 2, height / 2, width, height, ArtKeys.SKY_GRAD).setScrollFactor(0);
-    this.createDuneLayers(width, height);
-    this.createRoadLayer();
+    const hasNewArt =
+      this.textures.exists('bg_desert_clean') &&
+      this.textures.exists('bg_dunes_1080') &&
+      this.textures.exists('veh_gmc_cc0') &&
+      this.textures.exists('veh_prado_cc0');
+
+    if (hasNewArt) {
+      this.cc0Horizon = this.add.image(0, 0, 'bg_dunes_1080').setOrigin(0, 0).setScrollFactor(0);
+      this.cc0Horizon.setDisplaySize(width, height);
+      this.cc0Ground = this.add.tileSprite(0, 0, width, height, 'bg_desert_clean').setOrigin(0, 0).setScrollFactor(0);
+    } else {
+      this.createDuneLayers(width, height);
+      this.createRoadLayer();
+    }
 
     this.physics.world.setBounds(0, 0, this.worldWidth, this.worldHeight);
     const stats = this.vehicleStats();
     const startY = this.worldHeight - 220;
 
+    const useCc0 = this.textures.exists('veh_gmc_cc0') && this.textures.exists('veh_prado_cc0');
     this.shadow = this.add.image(180, startY, ArtKeys.VEH_SHADOW).setDepth(1);
-    this.player = this.physics.add.image(180, startY, this.vehicle === 'gmc' ? ArtKeys.VEH_GMC : ArtKeys.VEH_PRADO).setDepth(2);
+    const key = useCc0 ? (this.vehicle === 'gmc' ? 'veh_gmc_cc0' : 'veh_prado_cc0') : this.vehicle === 'gmc' ? ArtKeys.VEH_GMC : ArtKeys.VEH_PRADO;
+    this.player = this.physics.add.image(180, startY, key).setDepth(2);
+    this.player.setScale(useCc0 ? 0.6 : 1);
     this.player.setDamping(true).setDrag(stats.drag).setMaxVelocity(stats.max).setAngularDrag(600);
-    this.player.setSize(52, 28).setCollideWorldBounds(true);
+    this.player.setSize(this.player.width * 0.55, this.player.height * 0.7).setCollideWorldBounds(true);
 
     this.createPOIs();
     this.createItems();
@@ -778,7 +795,10 @@ export default class RunScene extends Phaser.Scene {
     const fade = Phaser.Math.Clamp((progress - 0.45) / 0.15, 0, 1);
     this.roadLayer.setAlpha(1 - fade * 0.9);
     const scroll = this.speed * dt;
-    this.duneLayers.forEach((l) => (l.sprite.tilePositionX += scroll * l.speed));
+    if (this.duneLayers.length) {
+      this.duneLayers.forEach((l) => (l.sprite.tilePositionX += scroll * l.speed));
+    }
+    if (this.cc0Ground) this.cc0Ground.tilePositionX = this.cameras.main.scrollX * 0.9;
     this.sky.tilePositionY = (RUN_SECONDS - this.timeLeft) * 0.2;
   }
 
