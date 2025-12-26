@@ -14,6 +14,7 @@ import { balance } from '../config/balance';
 import { makeInputState } from '../input/InputState';
 import { KeyboardInput } from '../input/KeyboardInput';
 import { TouchControls } from '../input/TouchControls';
+import { makeRoutePlan, RoutePlan, RouteKey } from '../systems/RoutePlanner';
 
 type Vehicle = 'gmc' | 'prado';
 
@@ -57,6 +58,8 @@ export default class RunScene extends Phaser.Scene {
   private hudItems!: Phaser.GameObjects.Text;
   private hudIcons: Record<ItemKey, Phaser.GameObjects.Image> = {} as any;
   private finishZone!: Phaser.GameObjects.Rectangle;
+  private finishFlag!: Phaser.GameObjects.Image;
+  private finishLabel!: Phaser.GameObjects.Text;
   private itemsGroup!: Phaser.Physics.Arcade.StaticGroup;
   private pois: POI[] = [];
   private isFinished = false;
@@ -90,6 +93,13 @@ export default class RunScene extends Phaser.Scene {
   private inputState = makeInputState();
   private keyboard!: KeyboardInput;
   private touch!: TouchControls;
+  private routePlan!: RoutePlan;
+  private forkShown = false;
+  private forkSafeZone?: Phaser.GameObjects.Zone;
+  private forkRiskyZone?: Phaser.GameObjects.Zone;
+  private routeLabel!: Phaser.GameObjects.Text;
+  private hudDistance!: Phaser.GameObjects.Text;
+  private finishTargetProgress = 1;
 
   constructor() {
     super('RunScene');
@@ -117,6 +127,7 @@ export default class RunScene extends Phaser.Scene {
     this.banner = this.createBanner();
 
     this.createBackgroundLayers();
+    this.routePlan = makeRoutePlan(this.rng);
 
     this.physics.world.setBounds(0, 0, this.worldWidth, this.worldHeight);
     const stats = this.vehicleStats();
@@ -137,6 +148,8 @@ export default class RunScene extends Phaser.Scene {
     this.createItems();
     this.createFinish();
     this.createHUD();
+    this.routeLabel = this.add.text(28, 138, 'المسار: لم يُحدد', this.hudStyle()).setScrollFactor(0).setDepth(11);
+    this.hudDistance = this.add.text(28, 162, 'المسافة: 100%', this.hudStyle()).setScrollFactor(0).setDepth(11);
     this.createTrailTimer();
     this.joke.setContext({ veh: this.vehicle, place: 'الرافعية', runCount: getNumber('rafiah_runs', 1) });
     this.speedLines = this.add.graphics().setDepth(5).setScrollFactor(0).setAlpha(0);
@@ -346,9 +359,9 @@ export default class RunScene extends Phaser.Scene {
     const zoneX = this.worldWidth - 200;
     const zoneY = 280;
     this.finishZone = this.add.rectangle(zoneX, zoneY, 200, 240, 0x4ade80, 0.12);
-    const flag = this.add.image(zoneX, zoneY - 120, ArtKeys.FINISH_FLAG).setDepth(2);
-    this.tweens.add({ targets: flag, scale: 1.08, yoyo: true, repeat: -1, duration: 650 });
-    this.add.text(zoneX, zoneY + 100, 'قمة الطعس', {
+    this.finishFlag = this.add.image(zoneX, zoneY - 120, ArtKeys.FINISH_FLAG).setDepth(2);
+    this.tweens.add({ targets: this.finishFlag, scale: 1.08, yoyo: true, repeat: -1, duration: 650 });
+    this.finishLabel = this.add.text(zoneX, zoneY + 100, 'قمة الطعس', {
       fontSize: '18px',
       color: '#fef08a',
       fontFamily: 'system-ui',
@@ -475,45 +488,50 @@ export default class RunScene extends Phaser.Scene {
 
   private startEvent(ev: ChaosEvent) {
     this.activeKey = ev.key;
+    let intensity = ev.intensity;
+    if (this.routePlan?.chosen) {
+      const mul = (this.routePlan as any)[this.routePlan.chosen].chaosMul || 1;
+      intensity = Math.min(3, Math.max(1, Math.round(intensity * mul))) as 1 | 2 | 3;
+    }
     this.activeEndsAt = this.elapsed + ev.dur;
     this.eventsTriggered.push(ev.key);
     this.funniestKey = ev.key;
-    const intensity = this.eventIntensityFromTime();
+    const timeIntensity = this.eventIntensityFromTime();
     this.joke.setContext({ timeLeftSec: this.timeLeft });
     switch (ev.key) {
       case 'stuck':
-        this.tractionMul = 0.35 + ev.intensity * 0.1;
-        this.maxSpeedMul = 0.55 + ev.intensity * 0.08;
-        this.toast.show(this.joke.pick('event_stuck', intensity, 'تغريز'));
+        this.tractionMul = 0.35 + intensity * 0.1;
+        this.maxSpeedMul = 0.55 + intensity * 0.08;
+        this.toast.show(this.joke.pick('event_stuck', timeIntensity, 'تغريز'));
         break;
       case 'overheat':
-        this.maxSpeedMul = 0.65 + ev.intensity * 0.06;
+        this.maxSpeedMul = 0.65 + intensity * 0.06;
         this.nitroDisabledUntil = this.activeEndsAt;
-        this.toast.show(this.joke.pick('event_overheat', intensity, 'حرارة!'));
+        this.toast.show(this.joke.pick('event_overheat', timeIntensity, 'حرارة!'));
         break;
       case 'flat':
-        this.maxSpeedMul = 0.7 + ev.intensity * 0.05;
-        this.steerMul = 0.7 + ev.intensity * 0.08;
+        this.maxSpeedMul = 0.7 + intensity * 0.05;
+        this.steerMul = 0.7 + intensity * 0.08;
         this.activeEndsAt = this.elapsed + randInt(this.rng, 12, 18);
-        this.toast.show(this.joke.pick('event_flat', intensity, 'بنشر'));
+        this.toast.show(this.joke.pick('event_flat', timeIntensity, 'بنشر'));
         break;
       case 'rain':
-        this.tractionMul = 0.7 + ev.intensity * 0.05;
-        this.toast.show(this.joke.pick('event_rain', intensity, 'مطر'));
+        this.tractionMul = 0.7 + intensity * 0.05;
+        this.toast.show(this.joke.pick('event_rain', timeIntensity, 'مطر'));
         this.showRain();
         break;
       case 'helicopter':
-        this.toast.show(this.joke.pick('event_helicopter', intensity, 'هيلوكبتر'));
+        this.toast.show(this.joke.pick('event_helicopter', timeIntensity, 'هيلوكبتر'));
         this.spawnHelicopter();
         inc('rafiah_helicopter_seen', 1);
         break;
       case 'camel':
-        this.toast.show(this.joke.pick('event_camel', intensity, 'جمل يقطع الطريق'));
+        this.toast.show(this.joke.pick('event_camel', timeIntensity, 'جمل يقطع الطريق'));
       this.spawnCamel();
       Feel.shake(this, 100, 0.003);
       break;
     case 'dogs':
-      this.toast.show(this.joke.pick('event_dogs_safe', intensity, 'زمّر لهم'));
+      this.toast.show(this.joke.pick('event_dogs_safe', timeIntensity, 'زمّر لهم'));
       this.spawnDogs();
       break;
     }
@@ -647,6 +665,77 @@ export default class RunScene extends Phaser.Scene {
     if (this.honkTimer > 0) this.honkTimer -= dt;
   }
 
+  private spawnFork() {
+    this.forkShown = true;
+    const forkX = this.worldWidth * this.routePlan.forkAtProgress;
+    const baseY = this.worldHeight / 2;
+    const makeSign = (x: number, label: string, align: 'left' | 'right') => {
+      const bg = this.add.rectangle(x, baseY - 200, 220, 70, 0x111827, 0.9).setStrokeStyle(2, 0xfcd34d).setDepth(6);
+      const txt = this.add.text(x, baseY - 200, label, {
+        fontSize: '18px',
+        color: '#f8fafc',
+        fontFamily: 'system-ui'
+      }).setOrigin(align === 'left' ? 0 : 1, 0.5).setDepth(7);
+      return [bg, txt];
+    };
+    const [safeBg, safeTxt] = makeSign(forkX - 180, '⬅ الطريق الآمن', 'left');
+    const [riskBg, riskTxt] = makeSign(forkX + 180, 'الاختصار الخطير ➡', 'right');
+
+    const makeZone = (x: number, route: RouteKey) => {
+      const z = this.add.zone(x, baseY, 220, 280).setOrigin(0.5);
+      this.physics.add.existing(z, true);
+      this.physics.add.overlap(this.player, z, () => this.lockRoute(route, [safeBg, safeTxt, riskBg, riskTxt, z, route === 'safe' ? this.forkRiskyZone : this.forkSafeZone]));
+      return z;
+    };
+    this.forkSafeZone = makeZone(forkX - 140, 'safe');
+    this.forkRiskyZone = makeZone(forkX + 140, 'risky');
+  }
+
+  private lockRoute(route: RouteKey, toDestroy?: (Phaser.GameObjects.GameObject | undefined)[]) {
+    if (this.routePlan.chosen) return;
+    this.routePlan.chosen = route;
+    if (toDestroy) {
+      toDestroy.forEach((o) => o && o.destroy());
+    }
+    const choiceToast = route === 'safe' ? 'اخترت الطريق الآمن… هدوء 👌' : 'اخترت الاختصار… الله يستر 😂';
+    this.toast.show(choiceToast);
+    if (route === 'safe') inc('route_safe_count', 1);
+    if (route === 'risky') inc('route_risky_count', 1);
+    this.finishTargetProgress = route === 'risky' ? this.routePlan.risky.finishProgress : this.routePlan.safe.finishProgress;
+    this.repositionFinish();
+    if (route === 'risky') {
+      this.time.delayedCall(10000, () => this.spawnStash());
+    }
+  }
+
+  private repositionFinish() {
+    const targetX = Math.max(400, this.worldWidth * this.finishTargetProgress);
+    const zoneX = targetX - 200;
+    this.finishZone.setPosition(zoneX, this.finishZone.y);
+    this.finishFlag.setPosition(zoneX, this.finishFlag.y);
+    this.finishLabel.setPosition(zoneX, this.finishLabel.y);
+  }
+
+  private spawnStash() {
+    if (this.isFinished) return;
+    const missing = getMissingEssentials(this.collected);
+    const rewardItem = missing.length ? missing[0] : null;
+    const x = this.player.x + 200;
+    const y = this.player.y;
+    const iconKey = rewardItem ? itemMeta[rewardItem].textureKey : ArtKeys.ICON_WATER;
+    const stash = this.physics.add.staticImage(x, y, iconKey).setScale(0.8).setDepth(4);
+    this.physics.add.overlap(this.player, stash, () => {
+      if (rewardItem) {
+        this.collectItem(rewardItem);
+        this.toast.show('لقينا تموين صدفة 😭');
+      } else {
+        this.fuel = Math.min(100, this.fuel + 15);
+        this.toast.show('لقينا موية زيادة');
+      }
+      stash.destroy();
+    });
+  }
+
   private updateHints() {
     if (this.elapsed > RUN_SECONDS * 0.25 && this.elapsed < RUN_SECONDS * 0.3) {
       this.toastMissingHints();
@@ -695,6 +784,7 @@ export default class RunScene extends Phaser.Scene {
         ev = { ...ev, intensity: Math.max(1, (ev.intensity as number) - 1) as 1 | 2 | 3, at: ev.at + 10 };
       }
       if (ev && this.blockLatePunish(ev)) ev = null;
+      if (ev && this.routePlan?.chosen === 'safe' && this.rng() > this.routePlan.safe.chaosMul) ev = null;
       if (ev) this.startEvent(ev);
     }
   }
@@ -754,9 +844,10 @@ export default class RunScene extends Phaser.Scene {
     const buff = this.buffActiveUntil > this.elapsed;
     const buffTraction = buff ? balance.planReward.buffTractionMul : 1;
     const buffMax = buff ? balance.planReward.buffMaxSpeedMul : 1;
+    const routeChaosMul = this.routePlan.chosen ? (this.routePlan as any)[this.routePlan.chosen].chaosMul : 1;
 
     const dynamicDrag = stats.drag + this.speed * 0.12 + (this.fuel <= 0 ? 260 : 0);
-    const max = this.fuel <= 0 ? stats.max * 0.35 : stats.max * this.maxSpeedMul * buffMax;
+    const max = this.fuel <= 0 ? stats.max * 0.35 : stats.max * this.maxSpeedMul * buffMax * (routeChaosMul > 1 ? 1.05 : 1);
     this.speed -= this.speed * dynamicDrag * 0.0012 * dt;
     this.speed = Phaser.Math.Clamp(this.speed, 0, max);
 
@@ -808,6 +899,10 @@ export default class RunScene extends Phaser.Scene {
     this.hudTime.setText(`الغروب: ${mins}:${secs.toString().padStart(2, '0')}`);
     const missing = getMissingEssentials(this.collected);
     this.hudItems.setText(`الأغراض: ${missing.length ? 'ناقص ' + missing.length : 'كامل'}`);
+    const progress = Phaser.Math.Clamp(this.player.x / this.worldWidth, 0, 1);
+    this.hudDistance.setText(`المسافة: ${(100 - Math.floor(progress * 100)).toString()}%`);
+    const routeText = this.routePlan.chosen ? (this.routePlan.chosen === 'safe' ? 'المسار: آمن' : 'المسار: اختصار') : 'المسار: اختر لاحقاً';
+    this.routeLabel.setText(routeText);
     if (!this.timePulseStarted && this.timeLeft <= 30) {
       this.timePulseStarted = true;
       this.tweens.add({
@@ -849,6 +944,10 @@ export default class RunScene extends Phaser.Scene {
     this.sunsetOverlay.clear();
     this.sunsetOverlay.fillStyle(0xf97316, overlayAlpha + lateBoost);
     this.sunsetOverlay.fillRect(0, 0, this.scale.width, this.scale.height);
+
+    if (!this.routePlan.chosen && progress >= this.routePlan.forkAtProgress && !this.forkShown) {
+      this.spawnFork();
+    }
   }
 
   private updateShadow() {
@@ -872,7 +971,8 @@ export default class RunScene extends Phaser.Scene {
       timeUsedSeconds: this.elapsed,
       eventsTriggered: this.eventsTriggered,
       funniestKey: this.funniestKey,
-      funnies: this.funnies.slice(-3)
+      funnies: this.funnies.slice(-3),
+      route: this.routePlan?.chosen || 'safe'
     };
     this.cameras.main.fadeOut(220, 0, 0, 0);
     this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {

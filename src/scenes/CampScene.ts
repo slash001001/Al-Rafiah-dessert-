@@ -17,6 +17,7 @@ interface CampData {
   eventsTriggered: string[];
   funniestKey?: string | null;
   funnies?: string[];
+  route?: 'safe' | 'risky';
 }
 
 export default class CampScene extends Phaser.Scene {
@@ -65,6 +66,7 @@ export default class CampScene extends Phaser.Scene {
     const funniestLine = data.funnies && data.funnies.length ? data.funnies[data.funnies.length - 1] : jokes.pick(`event_${funniest}`, 2, 'الخطة فشلت بس انبسطنا');
     const planLine = jokes.pick('plan_failed_generic', data.result === 'win' ? 1 : 2, 'التخطيط صفر والمتعة عشرة');
     const aliLine = jokes.pickRare(0.03) ? jokes.pick('ali_mishari_rare', 1, '') : '';
+    const routeLine = data.route === 'risky' ? 'المسار: الاختصار الخطير' : 'المسار: الطريق الآمن';
 
     const forgotLine = this.missingLines(missing);
     const outcome = this.cookOutcome(jokes, collectedSet, missing);
@@ -72,7 +74,8 @@ export default class CampScene extends Phaser.Scene {
     const recapLines = [
       `وش نسيت؟ ${forgotLine}`,
       `أغرب شي صار: ${funniestLine}`,
-      `التخطيط: ${essentials.length - missing.length}/4`
+      `التخطيط: ${essentials.length - missing.length}/4`,
+      routeLine
     ];
     recapLines.push(planLine);
     if (aliLine) recapLines.push(aliLine);
