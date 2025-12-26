@@ -39,8 +39,9 @@ export default class RunScene extends Phaser.Scene {
   private worldHeight = 1400;
   private duneLayers: { sprite: Phaser.GameObjects.TileSprite; speed: number }[] = [];
   private roadLayer!: Phaser.GameObjects.TileSprite;
-  private groundLayer!: Phaser.GameObjects.TileSprite;
+  private groundDunes!: Phaser.GameObjects.TileSprite;
   private sky!: Phaser.GameObjects.TileSprite;
+  private sunDisk!: Phaser.GameObjects.Graphics;
   private rainOverlay?: Phaser.GameObjects.Graphics;
   private fuel = 100;
   private speed = 0;
@@ -82,6 +83,8 @@ export default class RunScene extends Phaser.Scene {
   private speedLines!: Phaser.GameObjects.Graphics;
   private timePulseStarted = false;
   private buffActiveUntil = 0;
+  private dunesEntered = false;
+  private sunsetOverlay!: Phaser.GameObjects.Graphics;
 
   constructor() {
     super('RunScene');
@@ -108,20 +111,20 @@ export default class RunScene extends Phaser.Scene {
     this.toast = new ToastManager(this);
     this.banner = this.createBanner();
 
-    this.sky = this.add.tileSprite(width / 2, height / 2, width, height, ArtKeys.BG_SKY).setScrollFactor(0);
-    this.createDuneLayers(width, height);
-    this.createGroundLayer();
-    this.createRoadLayer();
+    this.createBackgroundLayers();
 
     this.physics.world.setBounds(0, 0, this.worldWidth, this.worldHeight);
     const stats = this.vehicleStats();
     const startY = this.worldHeight - 220;
 
-    const useCc0 = this.textures.exists('veh_gmc_cc0') && this.textures.exists('veh_prado_cc0');
-    this.shadow = this.add.image(180, startY, ArtKeys.VEH_SHADOW).setDepth(1);
-    const key = useCc0 ? (this.vehicle === 'gmc' ? 'veh_gmc_cc0' : 'veh_prado_cc0') : this.vehicle === 'gmc' ? ArtKeys.VEH_GMC : ArtKeys.VEH_PRADO;
-    this.player = this.physics.add.image(180, startY, key).setDepth(2);
-    this.player.setScale(useCc0 ? 0.6 : 1);
+    const shadowKey = ArtKeys.VEH_SHADOW;
+    const vehKey = this.vehicle === 'gmc' ? ArtKeys.VEH_GMC : ArtKeys.VEH_PRADO;
+    const VEH_SCALE_GMC = 0.4;
+    const VEH_SCALE_PRADO = 0.4;
+    const scale = this.vehicle === 'gmc' ? VEH_SCALE_GMC : VEH_SCALE_PRADO;
+    this.shadow = this.add.image(180, startY, shadowKey).setDepth(1).setScale(scale * 0.9).setAlpha(0.35);
+    this.player = this.physics.add.image(180, startY, vehKey).setDepth(2);
+    this.player.setScale(scale);
     this.player.setDamping(true).setDrag(stats.drag).setMaxVelocity(stats.max).setAngularDrag(600);
     this.player.setSize(this.player.width * 0.55, this.player.height * 0.7).setCollideWorldBounds(true);
 
@@ -199,24 +202,33 @@ export default class RunScene extends Phaser.Scene {
       : { accel: 520, drag: 180, max: 370, fuelUse: 0.2 };
   }
 
+  private createBackgroundLayers() {
+    const { width, height } = this.scale;
+    this.sky = this.add.tileSprite(width / 2, height / 2, width, height, ArtKeys.BG_SKY).setScrollFactor(0);
+    this.sunDisk = this.add.graphics().setScrollFactor(0).setDepth(0.1);
+    this.sunDisk.fillStyle(0xfbbf24, 0.7);
+    this.sunDisk.fillCircle(width * 0.78, height * 0.28, 28);
+    this.createDuneLayers(width, height);
+    this.groundDunes = this.add
+      .tileSprite(this.worldWidth / 2, this.worldHeight / 2, this.worldWidth, this.worldHeight, ArtKeys.GROUND_DUNES)
+      .setDepth(0.4)
+      .setAlpha(0);
+    this.createRoadLayer();
+    this.sunsetOverlay = this.add.graphics().setScrollFactor(0).setDepth(50);
+  }
+
   private createDuneLayers(screenW: number, screenH: number) {
     const l3 = this.add.tileSprite(screenW / 2, screenH / 2 + 60, screenW, screenH, ArtKeys.DUNE_FAR).setScrollFactor(0);
     const l2 = this.add.tileSprite(screenW / 2, screenH / 2 + 30, screenW, screenH, ArtKeys.DUNE_MID).setScrollFactor(0);
     const l1 = this.add.tileSprite(screenW / 2, screenH / 2, screenW, screenH, ArtKeys.DUNE_NEAR).setScrollFactor(0);
-    l3.setTileScale(1.6, 2.2);
-    l2.setTileScale(1.4, 2);
+    l3.setTileScale(1.4, 2);
+    l2.setTileScale(1.3, 1.9);
     l1.setTileScale(1.2, 1.8);
     this.duneLayers = [
-      { sprite: l3, speed: 0.05 },
-      { sprite: l2, speed: 0.1 },
-      { sprite: l1, speed: 0.16 }
+      { sprite: l3, speed: 0.12 },
+      { sprite: l2, speed: 0.25 },
+      { sprite: l1, speed: 0.45 }
     ];
-  }
-
-  private createGroundLayer() {
-    this.groundLayer = this.add
-      .tileSprite(this.worldWidth / 2, this.worldHeight / 2, this.worldWidth, this.worldHeight, ArtKeys.GROUND_DUNES)
-      .setDepth(0.4);
   }
 
   private createRoadLayer() {
@@ -236,11 +248,14 @@ export default class RunScene extends Phaser.Scene {
       { x: 1650, type: 'restaurant', tex: ArtKeys.POI_RESTAURANT, label: 'مطعم' }
     ];
     data.forEach((d) => {
-      const sprite = this.add.image(d.x, roadY, d.tex).setDepth(2).setOrigin(0.5, 1);
+      this.add.rectangle(d.x + 6, roadY - 6, 70, 70, 0x000000, 0.15).setDepth(1.5).setOrigin(0.5, 1);
+      const sprite = this.add.image(d.x, roadY, d.tex).setDepth(2).setOrigin(0.5, 1).setScale(0.55);
       this.add.text(d.x, roadY - 80, d.label, {
         fontSize: '18px',
         color: '#e5e7eb',
-        fontFamily: 'system-ui'
+        fontFamily: 'system-ui',
+        stroke: '#0f172a',
+        strokeThickness: 4
       }).setOrigin(0.5);
       this.physics.add.existing(sprite, true);
       const poi: POI = { sprite, body: sprite.body as Phaser.Physics.Arcade.StaticBody, type: d.type, used: false };
@@ -336,11 +351,14 @@ export default class RunScene extends Phaser.Scene {
     const zoneX = this.worldWidth - 200;
     const zoneY = 280;
     this.finishZone = this.add.rectangle(zoneX, zoneY, 200, 240, 0x4ade80, 0.12);
-    this.add.image(zoneX, zoneY - 120, ArtKeys.FINISH_FLAG).setDepth(2);
+    const flag = this.add.image(zoneX, zoneY - 120, ArtKeys.FINISH_FLAG).setDepth(2);
+    this.tweens.add({ targets: flag, scale: 1.08, yoyo: true, repeat: -1, duration: 650 });
     this.add.text(zoneX, zoneY + 100, 'قمة الطعس', {
       fontSize: '18px',
       color: '#fef08a',
-      fontFamily: 'system-ui'
+      fontFamily: 'system-ui',
+      stroke: '#0f172a',
+      strokeThickness: 4
     }).setOrigin(0.5);
     this.physics.add.existing(this.finishZone, true);
     this.physics.add.overlap(this.player, this.finishZone, () => this.finishRun(true, 'arrived'));
@@ -386,11 +404,11 @@ export default class RunScene extends Phaser.Scene {
     this.hudItems = this.add.text(28, 104, 'الأغراض:', this.hudStyle()).setScrollFactor(0).setDepth(11);
 
     essentials.forEach((k, idx) => {
-      const icon = this.add.image(110 + idx * 34, 120, itemMeta[k].textureKey).setScrollFactor(0).setDepth(11);
+      const icon = this.add.image(110 + idx * 34, 120, itemMeta[k].textureKey).setScrollFactor(0).setDepth(11).setScale(0.35);
       icon.setTint(0x475569);
       this.hudIcons[k] = icon;
     });
-    const hummusIcon = this.add.image(110 + essentials.length * 34, 120, itemMeta.hummus.textureKey).setScrollFactor(0).setDepth(11);
+    const hummusIcon = this.add.image(110 + essentials.length * 34, 120, itemMeta.hummus.textureKey).setScrollFactor(0).setDepth(11).setScale(0.35);
     hummusIcon.setTint(0x475569);
     this.hudIcons.hummus = hummusIcon;
 
@@ -803,16 +821,31 @@ export default class RunScene extends Phaser.Scene {
   private updateBackground(dt: number) {
     const progress = Phaser.Math.Clamp(this.player.x / this.worldWidth, 0, 1);
     const fade = Phaser.Math.Clamp((progress - 0.45) / 0.15, 0, 1);
-    this.roadLayer.setAlpha(1 - fade * 0.9);
+    this.roadLayer.setAlpha(1 - fade * 0.95);
+    if (this.groundDunes) this.groundDunes.setAlpha(fade);
+    if (!this.dunesEntered && fade > 0.05) {
+      this.dunesEntered = true;
+      this.toast.show('دخلنا الطعوس 🏜️');
+    }
     const scroll = this.speed * dt;
     if (this.duneLayers.length) {
       this.duneLayers.forEach((l) => (l.sprite.tilePositionX += scroll * l.speed));
     }
-    if (this.groundLayer) {
-      this.groundLayer.tilePositionX = this.player.x * 0.35;
-      this.groundLayer.tilePositionY = this.player.y * 0.05;
+    if (this.groundDunes) {
+      this.groundDunes.tilePositionX = this.player.x * 0.35;
+      this.groundDunes.tilePositionY = this.player.y * 0.05;
+    }
+    if (this.roadLayer) {
+      this.roadLayer.tilePositionX = this.player.x * 0.35;
+      this.roadLayer.tilePositionY = this.player.y * 0.05;
     }
     this.sky.tilePositionY = (RUN_SECONDS - this.timeLeft) * 0.2;
+    const t = 1 - Phaser.Math.Clamp(this.timeLeft / RUN_SECONDS, 0, 1);
+    const overlayAlpha = Phaser.Math.Linear(0, 0.24, t);
+    const lateBoost = this.timeLeft <= 30 ? 0.06 : 0;
+    this.sunsetOverlay.clear();
+    this.sunsetOverlay.fillStyle(0xf97316, overlayAlpha + lateBoost);
+    this.sunsetOverlay.fillRect(0, 0, this.scale.width, this.scale.height);
   }
 
   private updateShadow() {

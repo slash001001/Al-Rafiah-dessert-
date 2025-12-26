@@ -16,6 +16,7 @@ export default class MenuScene extends Phaser.Scene {
   private dunes!: Phaser.GameObjects.TileSprite[];
   private tips: string[] = [];
   private tipIndex = 0;
+  private debugMode = new URL(window.location.href).searchParams.get('debug') === '1';
 
   constructor() {
     super('MenuScene');
@@ -44,6 +45,11 @@ export default class MenuScene extends Phaser.Scene {
       fontSize: '18px',
       fontFamily: 'system-ui, sans-serif',
       color: '#e5e7eb'
+    }).setOrigin(0.5);
+    this.add.text(width / 2, height / 2 - 76, 'الرافعية — الدمام', {
+      fontSize: '14px',
+      fontFamily: 'system-ui, sans-serif',
+      color: '#cbd5e1'
     }).setOrigin(0.5);
 
     this.add.text(width / 2, height / 2 - 60, 'التحكم: WASD/الأسهم — نيترو: Space — زمور: H', {
@@ -89,6 +95,17 @@ export default class MenuScene extends Phaser.Scene {
       color: '#cbd5e1',
       fontFamily: 'system-ui'
     }).setOrigin(0.5);
+
+    if (this.debugMode) {
+      const dbg = this.add.text(90, height - 40, 'معرض الرسوم', {
+        fontSize: '14px',
+        color: '#0f172a',
+        backgroundColor: '#fcd34d',
+        padding: { x: 10, y: 6 },
+        fontFamily: 'system-ui'
+      }).setOrigin(0.5).setInteractive({ useHandCursor: true }).setScrollFactor(0);
+      dbg.on('pointerdown', () => this.scene.start('ArtGalleryScene'));
+    }
   }
 
   private muteText() {
@@ -97,10 +114,15 @@ export default class MenuScene extends Phaser.Scene {
 
   private makeCard(x: number, y: number, v: Vehicle, title: string, desc: string) {
     const container = this.add.container(x, y);
-    const base = this.add.rectangle(0, 0, 220, 140, 0x111827, 0.9).setStrokeStyle(2, 0x38bdf8);
-    const t = this.add.text(0, -30, title, { fontSize: '22px', color: '#e5e7eb', fontFamily: 'system-ui' }).setOrigin(0.5);
-    const d = this.add.text(0, 10, desc, { fontSize: '14px', color: '#cbd5e1', fontFamily: 'system-ui' }).setOrigin(0.5);
-    container.add([base, t, d]);
+    const base = this.add.rectangle(0, 0, 240, 170, 0x111827, 0.9).setStrokeStyle(2, 0x38bdf8);
+    const t = this.add.text(0, -60, title, { fontSize: '22px', color: '#e5e7eb', fontFamily: 'system-ui' }).setOrigin(0.5);
+    const imgKey = v === 'gmc' ? ArtKeys.VEH_GMC : ArtKeys.VEH_PRADO;
+    const car = this.add.image(0, 0, imgKey);
+    const sc = Math.min(120 / car.width, 70 / car.height);
+    car.setScale(sc);
+    const shadow = this.add.image(0, 18, ArtKeys.VEH_SHADOW).setScale(sc * 0.9).setAlpha(0.4);
+    const d = this.add.text(0, 50, desc, { fontSize: '14px', color: '#cbd5e1', fontFamily: 'system-ui' }).setOrigin(0.5);
+    container.add([base, shadow, car, t, d]);
     container.setSize(220, 140);
     container.setInteractive({ useHandCursor: true });
     container.on('pointerdown', () => {

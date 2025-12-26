@@ -4,6 +4,8 @@ import { JokeEngine } from '../systems/JokeEngine';
 import { mulberry32, hashStringToSeed } from '../systems/rng';
 import { inc, getNumber, setNumber } from '../systems/persist';
 import { beep } from '../ui/Sfx';
+import { ensureProceduralArt } from '../visual/Procedural';
+import { ArtKeys } from '../visual/ArtKeys';
 
 interface CampData {
   result: 'win' | 'fail';
@@ -17,14 +19,27 @@ interface CampData {
 }
 
 export default class CampScene extends Phaser.Scene {
+  private dunes: Phaser.GameObjects.TileSprite[] = [];
+
   constructor() {
     super('CampScene');
   }
 
   create(data: CampData) {
+    ensureProceduralArt(this);
     const { width, height } = this.scale;
     this.cameras.main.setBackgroundColor('#0b0f14');
     this.cameras.main.fadeIn(200, 0, 0, 0);
+    const sky = this.add.tileSprite(width / 2, height / 2, width, height, ArtKeys.BG_SKY).setScrollFactor(0);
+    const l3 = this.add.tileSprite(width / 2, height / 2 + 50, width, height, ArtKeys.DUNE_FAR).setScrollFactor(0);
+    const l2 = this.add.tileSprite(width / 2, height / 2 + 25, width, height, ArtKeys.DUNE_MID).setScrollFactor(0);
+    const l1 = this.add.tileSprite(width / 2, height / 2, width, height, ArtKeys.DUNE_NEAR).setScrollFactor(0);
+    l3.setTileScale(1.2, 1.8);
+    l2.setTileScale(1.15, 1.75);
+    l1.setTileScale(1.1, 1.7);
+    this.dunes = [l3, l2, l1];
+    const dusk = this.add.rectangle(0, 0, width, height, 0xf97316, 0.2).setOrigin(0).setScrollFactor(0);
+
     const seed = hashStringToSeed(`${Date.now()}-${Math.random()}`);
     const rng = mulberry32(seed);
     const jokes = new JokeEngine(seed);
@@ -74,6 +89,8 @@ export default class CampScene extends Phaser.Scene {
     const ctas = ['طلعنا مرة ثانية', 'أعد… يمكن تضبط', 'خلاص آخر مرة (كذب)'];
     const restart = this.makeButton(width / 2, height / 2 + 150, ctas[0], () => this.backMenu());
     const rerun = this.makeButton(width / 2, height / 2 + 200, ctas[1], () => this.restartRun(data.vehicle));
+
+    this.drawCampfire(width / 2 - 230, height / 2 + 110);
 
     panel.setDepth(1);
     restart.setDepth(2);
@@ -153,6 +170,30 @@ export default class CampScene extends Phaser.Scene {
     this.cameras.main.fadeOut(180, 0, 0, 0);
     this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
       this.scene.start('RunScene', { vehicle });
+    });
+  }
+
+  private drawCampfire(x: number, y: number) {
+    const key = 'campfire_tmp';
+    if (!this.textures.exists(key)) {
+      const g = this.add.graphics();
+      g.fillStyle(0x92400e);
+      g.fillRect(8, 26, 36, 8);
+      g.fillRect(0, 30, 36, 8);
+      g.fillStyle(0xf97316);
+      g.fillTriangle(28, 30, 18, 0, 8, 30);
+      g.fillTriangle(36, 30, 26, 6, 16, 30);
+      g.fillTriangle(44, 30, 34, 4, 24, 30);
+      g.generateTexture(key, 52, 40);
+      g.destroy();
+    }
+    this.add.image(x, y, key).setDepth(3);
+  }
+
+  update(_t: number, dtMs: number) {
+    const dt = dtMs / 1000;
+    this.dunes?.forEach((d, i) => {
+      d.tilePositionX += (i + 1) * 8 * dt;
     });
   }
 }
