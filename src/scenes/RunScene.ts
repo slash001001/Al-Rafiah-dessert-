@@ -77,6 +77,7 @@ export default class RunScene extends Phaser.Scene {
   private eventsTriggered: ChaosKey[] = [];
   private funniestKey: ChaosKey | null = null;
   private funnies: string[] = [];
+  private badges: string[] = [];
   private joke!: JokeEngine;
   private isPaused = false;
   private pauseMenu!: PauseMenu;
@@ -440,6 +441,7 @@ export default class RunScene extends Phaser.Scene {
   private showBanner(title: string, line: string) {
     this.banner.title.setText(title);
     this.banner.line.setText(line);
+    this.pushFunny(line);
     this.tweens.add({
       targets: [this.banner.box, this.banner.title, this.banner.line],
       alpha: 1,

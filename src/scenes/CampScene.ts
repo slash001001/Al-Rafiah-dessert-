@@ -4,6 +4,7 @@ import { JokeEngine } from '../systems/JokeEngine';
 import { mulberry32, hashStringToSeed } from '../systems/rng';
 import { inc, getNumber, setNumber } from '../systems/persist';
 import { beep } from '../ui/Sfx';
+import { ShareCard, ShareSummary } from '../ui/ShareCard';
 import { ensureProceduralArt } from '../visual/Procedural';
 import { ArtKeys } from '../visual/ArtKeys';
 
@@ -20,6 +21,7 @@ interface CampData {
 
 export default class CampScene extends Phaser.Scene {
   private dunes: Phaser.GameObjects.TileSprite[] = [];
+  private shareCard?: ShareCard;
 
   constructor() {
     super('CampScene');
@@ -86,22 +88,60 @@ export default class CampScene extends Phaser.Scene {
 
     this.renderBadges(width, height, missing, data.eventsTriggered);
 
+    const badges = this.computeBadges(missing, data.eventsTriggered || []);
+
+    const summary: ShareSummary = {
+      result: data.result,
+      vehicle: data.vehicle,
+      timeUsedSec: data.timeUsedSeconds,
+      missingEssentials: missing.map((m) => ({ key: m, label: this.labelFor(m), iconKey: this.iconKeyFor(m) })),
+      funniestLine,
+      badges,
+      url: 'https://slash001001.github.io/Al-Rafiah-dessert-/'
+    };
+    this.shareCard = new ShareCard(this, summary);
+    this.shareCard.show();
+
     const ctas = ['طلعنا مرة ثانية', 'أعد… يمكن تضبط', 'خلاص آخر مرة (كذب)'];
     const restart = this.makeButton(width / 2, height / 2 + 150, ctas[0], () => this.backMenu());
     const rerun = this.makeButton(width / 2, height / 2 + 210, ctas[1], () => this.restartRun(data.vehicle));
+    const saveBtn = this.makeButton(width / 2 - 200, height - 60, 'احفظ كرت الطلعة', async () => {
+      try {
+        await this.shareCard?.downloadPng('rafiah_postcard.png');
+        this.showToast('تم حفظ الكرت ✅');
+      } catch (err) {
+        this.showToast('ما قدرنا نحفظ الكرت');
+      }
+    });
+    const copyBtn = this.makeButton(width / 2, height - 60, 'انسخ الرابط', async () => {
+      await this.shareCard?.copyLink();
+      this.showToast('تم نسخ الرابط 🔗');
+    });
+    const shareSupported = typeof (navigator as any).share === 'function';
+    const shareBtn = shareSupported
+      ? this.makeButton(width / 2 + 200, height - 60, 'مشاركة', async () => {
+          try {
+            await this.shareCard?.nativeShare();
+            this.showToast('شاركنا الرابط ✅');
+          } catch (err) {
+            await this.shareCard?.copyLink();
+            this.showToast('شاركنا بالرابط المنسوخ');
+          }
+        })
+      : null;
 
     this.drawCampfire(width / 2 - 230, height / 2 + 110);
 
     panel.setDepth(1);
     restart.setDepth(2);
     rerun.setDepth(2);
+    saveBtn.setDepth(2);
+    copyBtn.setDepth(2);
+    shareBtn?.setDepth(2);
   }
 
   private renderBadges(width: number, height: number, missing: ItemKey[], events: string[]) {
-    const badges: string[] = [];
-    if (missing.includes('salt')) badges.push('نسيت الملح');
-    if (events.filter((e) => e === 'stuck').length >= 2) badges.push('ملك الغرز');
-    if (events.includes('helicopter')) badges.push('افتتاح الموسم');
+    const badges = this.computeBadges(missing, events);
     badges.forEach((b, i) => {
       this.add.text(width / 2 - 120 + i * 120, height / 2 + 70, `🏅 ${b}`, {
         fontSize: '16px',
@@ -114,6 +154,14 @@ export default class CampScene extends Phaser.Scene {
   private missingLines(missing: ItemKey[]) {
     if (!missing.length) return 'ما نسينا شي (معجزة)';
     return missing.join(', ');
+  }
+
+  private computeBadges(missing: ItemKey[], events: string[]) {
+    const badges: string[] = [];
+    if (missing.includes('salt')) badges.push('نسيت الملح');
+    if (events.filter((e) => e === 'stuck').length >= 2) badges.push('ملك الغرز');
+    if (events.includes('helicopter')) badges.push('افتتاح الموسم');
+    return badges;
   }
 
   private cookOutcome(jokes: JokeEngine, collected: Set<ItemKey>, missing: ItemKey[]) {
@@ -188,6 +236,47 @@ export default class CampScene extends Phaser.Scene {
       g.destroy();
     }
     this.add.image(x, y, key).setDepth(3);
+  }
+
+  private labelFor(key: ItemKey) {
+    switch (key) {
+      case 'salt':
+        return 'ملح';
+      case 'water':
+        return 'موية';
+      case 'charcoal':
+        return 'فحم';
+      case 'lighter':
+        return 'ولاعة';
+      case 'hummus':
+        return 'حمص';
+    }
+  }
+
+  private iconKeyFor(key: ItemKey) {
+    switch (key) {
+      case 'salt':
+        return 'icon_salt';
+      case 'water':
+        return 'icon_water';
+      case 'charcoal':
+        return 'icon_charcoal';
+      case 'lighter':
+        return 'icon_lighter';
+      case 'hummus':
+        return 'icon_hummus';
+    }
+  }
+
+  private showToast(msg: string) {
+    const t = this.add.text(this.scale.width / 2, this.scale.height - 30, msg, {
+      fontSize: '16px',
+      color: '#0f172a',
+      backgroundColor: '#fcd34d',
+      padding: { x: 12, y: 8 },
+      fontFamily: 'system-ui'
+    }).setOrigin(0.5).setDepth(50);
+    this.tweens.add({ targets: t, alpha: 0, duration: 1200, delay: 600, onComplete: () => t.destroy() });
   }
 
   update(_t: number, dtMs: number) {
