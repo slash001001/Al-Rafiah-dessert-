@@ -51,6 +51,11 @@ export default class MenuScene extends Phaser.Scene {
       fontFamily: 'system-ui, sans-serif',
       color: '#cbd5e1'
     }).setOrigin(0.5);
+    this.add.text(width / 2, height / 2 - 46, 'على الجوال: أزرار لمس تلقائي', {
+      fontSize: '14px',
+      fontFamily: 'system-ui, sans-serif',
+      color: '#cbd5e1'
+    }).setOrigin(0.5);
 
     this.add.text(width / 2, height / 2 - 60, 'التحكم: WASD/الأسهم — نيترو: Space — زمور: H', {
       fontSize: '14px',
@@ -114,7 +119,7 @@ export default class MenuScene extends Phaser.Scene {
 
   private makeCard(x: number, y: number, v: Vehicle, title: string, desc: string) {
     const container = this.add.container(x, y);
-    const base = this.add.rectangle(0, 0, 240, 170, 0x111827, 0.9).setStrokeStyle(2, 0x38bdf8);
+    const base = this.add.rectangle(0, 0, 260, 190, 0x111827, 0.9).setStrokeStyle(2, 0x38bdf8);
     const t = this.add.text(0, -60, title, { fontSize: '22px', color: '#e5e7eb', fontFamily: 'system-ui' }).setOrigin(0.5);
     const imgKey = v === 'gmc' ? ArtKeys.VEH_GMC : ArtKeys.VEH_PRADO;
     const car = this.add.image(0, 0, imgKey);
@@ -123,7 +128,7 @@ export default class MenuScene extends Phaser.Scene {
     const shadow = this.add.image(0, 18, ArtKeys.VEH_SHADOW).setScale(sc * 0.9).setAlpha(0.4);
     const d = this.add.text(0, 50, desc, { fontSize: '14px', color: '#cbd5e1', fontFamily: 'system-ui' }).setOrigin(0.5);
     container.add([base, shadow, car, t, d]);
-    container.setSize(220, 140);
+    container.setSize(260, 190);
     container.setInteractive({ useHandCursor: true });
     container.on('pointerdown', () => {
       beep('ui');

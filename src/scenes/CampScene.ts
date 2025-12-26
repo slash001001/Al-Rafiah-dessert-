@@ -88,7 +88,7 @@ export default class CampScene extends Phaser.Scene {
 
     const ctas = ['طلعنا مرة ثانية', 'أعد… يمكن تضبط', 'خلاص آخر مرة (كذب)'];
     const restart = this.makeButton(width / 2, height / 2 + 150, ctas[0], () => this.backMenu());
-    const rerun = this.makeButton(width / 2, height / 2 + 200, ctas[1], () => this.restartRun(data.vehicle));
+    const rerun = this.makeButton(width / 2, height / 2 + 210, ctas[1], () => this.restartRun(data.vehicle));
 
     this.drawCampfire(width / 2 - 230, height / 2 + 110);
 
@@ -143,10 +143,10 @@ export default class CampScene extends Phaser.Scene {
 
   private makeButton(x: number, y: number, label: string, cb: () => void) {
     const btn = this.add.text(x, y, label, {
-      fontSize: '20px',
+      fontSize: '22px',
       color: '#0f172a',
       backgroundColor: '#fcd34d',
-      padding: { x: 16, y: 10 },
+      padding: { x: 20, y: 14 },
       fontFamily: 'system-ui'
     }).setOrigin(0.5);
     btn.setInteractive({ useHandCursor: true });

@@ -11,6 +11,9 @@ import { ToastManager } from '../ui/Toast';
 import { beep } from '../ui/Sfx';
 import { inc, getNumber, setNumber } from '../systems/persist';
 import { balance } from '../config/balance';
+import { makeInputState } from '../input/InputState';
+import { KeyboardInput } from '../input/KeyboardInput';
+import { TouchControls } from '../input/TouchControls';
 
 type Vehicle = 'gmc' | 'prado';
 
@@ -33,8 +36,6 @@ export default class RunScene extends Phaser.Scene {
   private vehicle: Vehicle = 'gmc';
   private player!: Phaser.Physics.Arcade.Image;
   private shadow!: Phaser.GameObjects.Image;
-  private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
-  private keys!: { [k: string]: Phaser.Input.Keyboard.Key };
   private worldWidth = 5200;
   private worldHeight = 1400;
   private duneLayers: { sprite: Phaser.GameObjects.TileSprite; speed: number }[] = [];
@@ -85,6 +86,9 @@ export default class RunScene extends Phaser.Scene {
   private buffActiveUntil = 0;
   private dunesEntered = false;
   private sunsetOverlay!: Phaser.GameObjects.Graphics;
+  private inputState = makeInputState();
+  private keyboard!: KeyboardInput;
+  private touch!: TouchControls;
 
   constructor() {
     super('RunScene');
@@ -142,16 +146,11 @@ export default class RunScene extends Phaser.Scene {
       () => this.scene.start('MenuScene')
     );
 
-    const keyboard = this.input.keyboard!;
-    this.cursors = keyboard.createCursorKeys();
-    this.keys = keyboard.addKeys({
-      W: Phaser.Input.Keyboard.KeyCodes.W,
-      A: Phaser.Input.Keyboard.KeyCodes.A,
-      S: Phaser.Input.Keyboard.KeyCodes.S,
-      D: Phaser.Input.Keyboard.KeyCodes.D,
-      SPACE: Phaser.Input.Keyboard.KeyCodes.SPACE,
-      H: Phaser.Input.Keyboard.KeyCodes.H
-    }) as any;
+    this.keyboard = new KeyboardInput(this);
+    this.touch = new TouchControls(this);
+    if (this.sys.game.device.os.android || this.sys.game.device.os.iOS) {
+      this.toast.show('تحكم باللمس جاهز ✅');
+    }
 
     this.cameras.main.startFollow(this.player, true, 0.12, 0.12);
     this.cameras.main.setDeadzone(240, 160);
@@ -168,11 +167,6 @@ export default class RunScene extends Phaser.Scene {
         .setScrollFactor(0)
         .setDepth(40);
     }
-    this.input.keyboard?.on('keydown-ESC', () => {
-      this.isPaused = !this.isPaused;
-      this.pauseMenu[this.isPaused ? 'show' : 'hide']();
-    });
-
     this.time.addEvent({
       delay: 1000,
       loop: true,
@@ -370,7 +364,7 @@ export default class RunScene extends Phaser.Scene {
       loop: true,
       callback: () => {
     if (!this.player || this.isFinished || this.speed < 40) return;
-    const mult = this.keys.SPACE.isDown ? 1.6 : 1;
+    const mult = this.inputState.nitro ? 1.6 : 1;
     for (let i = 0; i < mult; i++) {
       const puff = this.add.image(
         this.player.x - Math.cos(this.angle) * (16 + i * 4),
@@ -637,7 +631,7 @@ export default class RunScene extends Phaser.Scene {
   }
 
   private handleHonk(dt: number) {
-    if (this.keys.H.isDown) {
+    if (this.inputState.honk) {
       if (this.honkTimer <= 0) {
         beep('ui');
         this.honkTimer = 0.4;
@@ -669,6 +663,13 @@ export default class RunScene extends Phaser.Scene {
 
   update(_time: number, delta: number) {
     if (this.isFinished) return;
+    this.inputState.pausePressed = false;
+    this.keyboard.update(this.inputState);
+    this.touch.update(this.inputState);
+    if (this.inputState.pausePressed) {
+      this.isPaused = !this.isPaused;
+      this.pauseMenu[this.isPaused ? 'show' : 'hide']();
+    }
     if (this.freezeUntil && this.time.now < this.freezeUntil) return;
     if (this.isPaused) return;
     const dt = delta / 1000;
@@ -735,11 +736,11 @@ export default class RunScene extends Phaser.Scene {
 
   private handleDrive(dt: number) {
     const stats = this.vehicleStats();
-    const forward = this.cursors.up?.isDown || this.keys.W.isDown;
-    const backward = this.cursors.down?.isDown || this.keys.S.isDown;
-    const left = this.cursors.left?.isDown || this.keys.A.isDown;
-    const right = this.cursors.right?.isDown || this.keys.D.isDown;
-    const nitroPressed = this.keys.SPACE.isDown && this.fuel > 5 && this.nitroCooldown <= 0 && this.elapsed >= this.nitroDisabledUntil;
+    const forward = this.inputState.accel;
+    const backward = this.inputState.brake;
+    const left = this.inputState.left;
+    const right = this.inputState.right;
+    const nitroPressed = this.inputState.nitro && this.fuel > 5 && this.nitroCooldown <= 0 && this.elapsed >= this.nitroDisabledUntil;
 
     let accel = 0;
     if (forward) accel += stats.accel;
