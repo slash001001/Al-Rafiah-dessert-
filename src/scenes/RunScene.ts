@@ -20,6 +20,8 @@ type Vehicle = 'gmc' | 'prado';
 
 interface RunData {
   vehicle: Vehicle;
+  collected?: ItemKey[];
+  skippedPack?: boolean;
 }
 
 const RUN_SECONDS = balance.RUN_SECONDS;
@@ -81,6 +83,7 @@ export default class RunScene extends Phaser.Scene {
   private funniestKey: ChaosKey | null = null;
   private funnies: string[] = [];
   private badges: string[] = [];
+  private initialCollected: ItemKey[] = [];
   private joke!: JokeEngine;
   private isPaused = false;
   private pauseMenu!: PauseMenu;
@@ -107,6 +110,7 @@ export default class RunScene extends Phaser.Scene {
 
   init(data: RunData) {
     this.vehicle = data?.vehicle || 'gmc';
+    this.initialCollected = data?.collected || [];
   }
 
   preload() {
@@ -192,6 +196,11 @@ export default class RunScene extends Phaser.Scene {
         }
       }
     });
+
+    if (this.initialCollected.length) {
+      this.initialCollected.forEach((k) => this.collectItem(k));
+      this.toast.show('الشنطة فيها أساسيات جاهزة');
+    }
   }
 
   private buildSeed() {
@@ -401,7 +410,7 @@ export default class RunScene extends Phaser.Scene {
   }
 
   private createHUD() {
-    const panel = this.add.rectangle(16, 16, 270, 150, 0x0f172a, 0.75)
+    const panel = this.add.rectangle(16, 16, 320, 200, 0x0f172a, 0.75)
       .setOrigin(0)
       .setStrokeStyle(2, 0xfcd34d)
       .setScrollFactor(0)
@@ -412,15 +421,33 @@ export default class RunScene extends Phaser.Scene {
     this.hudItems = this.add.text(28, 104, 'الأغراض:', this.hudStyle()).setScrollFactor(0).setDepth(11);
 
     essentials.forEach((k, idx) => {
-      const icon = this.add.image(110 + idx * 34, 120, itemMeta[k].textureKey).setScrollFactor(0).setDepth(11).setScale(0.35);
+      const icon = this.add.image(110 + idx * 38, 132, itemMeta[k].textureKey).setScrollFactor(0).setDepth(11).setScale(0.4);
       icon.setTint(0x475569);
       this.hudIcons[k] = icon;
     });
-    const hummusIcon = this.add.image(110 + essentials.length * 34, 120, itemMeta.hummus.textureKey).setScrollFactor(0).setDepth(11).setScale(0.35);
+    const hummusIcon = this.add.image(110 + essentials.length * 38, 132, itemMeta.hummus.textureKey).setScrollFactor(0).setDepth(11).setScale(0.4);
     hummusIcon.setTint(0x475569);
     this.hudIcons.hummus = hummusIcon;
 
     this.children.bringToTop(panel);
+
+    // Progress bar with markers
+    const barX = this.scale.width / 2 - 180;
+    const barY = 20;
+    const barW = 360;
+    const barH = 12;
+    const barBg = this.add.rectangle(barX, barY, barW, barH, 0x111827, 0.8).setOrigin(0, 0).setScrollFactor(0).setDepth(11);
+    const barFill = this.add.rectangle(barX, barY, 0, barH, 0xfcd34d, 0.9).setOrigin(0, 0).setScrollFactor(0).setDepth(12);
+    const markersX = [520, 1100, 1650, this.worldWidth * (this.routePlan?.forkAtProgress || 0.45), this.worldWidth * this.finishTargetProgress];
+    markersX.forEach((mx, idx) => {
+      const t = Phaser.Math.Clamp(mx / this.worldWidth, 0, 1);
+      const color = idx === markersX.length - 1 ? 0x22c55e : 0x38bdf8;
+      this.add.rectangle(barX + t * barW, barY - 4, 6, barH + 8, color, 0.9).setOrigin(0.5, 0).setScrollFactor(0).setDepth(13);
+    });
+    this.events.on('update', () => {
+      const progress = Phaser.Math.Clamp(this.player ? this.player.x / this.worldWidth : 0, 0, 1);
+      barFill.width = barW * progress;
+    });
   }
 
   private hudStyle() {

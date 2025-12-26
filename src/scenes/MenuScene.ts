@@ -171,7 +171,7 @@ export default class MenuScene extends Phaser.Scene {
     this.tipIndex = (this.tipIndex + 1) % this.tips.length;
     this.cameras.main.fadeOut(200, 0, 0, 0);
     this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
-      this.scene.start('RunScene', { vehicle: this.selected });
+      this.scene.start('PackScene', { vehicle: this.selected });
     });
   }
 
