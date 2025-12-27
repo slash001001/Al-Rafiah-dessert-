@@ -70,7 +70,8 @@ export default class MenuScene extends Phaser.Scene {
 
     cards.forEach((card) => this.makeCard(card.x, height / 2 + 10, card.v, card.label, card.desc));
 
-    const start = this.makeButton(width / 2, height / 2 + 160, 'ابدأ الرحلة', () => this.startRun());
+    const start = this.makeButton(width / 2 - 120, height / 2 + 160, 'ابدأ الرحلة', () => this.startRun());
+    const quick = this.makeButton(width / 2 + 120, height / 2 + 160, 'ابدأ سريع', () => this.startRun(true));
     this.input.keyboard?.on('keydown-ENTER', () => start.emit('pointerdown'));
     this.input.keyboard?.on('keydown-SPACE', () => start.emit('pointerdown'));
 
@@ -166,12 +167,13 @@ export default class MenuScene extends Phaser.Scene {
     base.setStrokeStyle(3, 0xf4c27a);
   }
 
-  private startRun() {
+  private startRun(skipPack = false) {
     inc('rafiah_runs', 1);
     this.tipIndex = (this.tipIndex + 1) % this.tips.length;
     this.cameras.main.fadeOut(200, 0, 0, 0);
     this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
-      this.scene.start('PackScene', { vehicle: this.selected });
+      if (skipPack) this.scene.start('RunScene', { vehicle: this.selected });
+      else this.scene.start('PackScene', { vehicle: this.selected });
     });
   }
 

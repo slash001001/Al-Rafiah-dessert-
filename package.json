@@ -8,7 +8,11 @@
     "dev": "vite --open index-dev.html --host",
     "build": "tsc -b && vite build && cp dist/index-dev.html dist/index.html",
     "preview": "vite preview",
-    "deploy": "npm run build && gh-pages -d dist -b gh-pages"
+    "verify": "npm run build && node tools/check_dist_integrity.mjs",
+    "deploy": "npm run build && gh-pages -d dist -b gh-pages",
+    "deploy:safe": "npm run verify && gh-pages -d dist -b gh-pages && node tools/pages_healthcheck.mjs",
+    "art:import": "node tools/import_art_pack_v1.mjs && node tools/generate_art_manifest.mjs",
+    "art:status": "cat docs/ART_PACK_V1_STATUS.md || true"
   },
   "dependencies": {
     "phaser": "^3.90.0"

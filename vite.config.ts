@@ -10,7 +10,10 @@ export default defineConfig(({ command }) => ({
       output: {
         entryFileNames: "assets/app.js",
         chunkFileNames: "assets/[name].js",
-        assetFileNames: "assets/[name].[ext]"
+        assetFileNames: "assets/[name].[ext]",
+        manualChunks: {
+          vendor: ["phaser"]
+        }
       }
     }
   }
