@@ -51,7 +51,7 @@ export class HUD {
     const dist = Math.max(0, stats.distance);
     const t = Math.max(0, stats.timeLeft);
     this.text.setText(
-      `Fuel: ${fuel.toFixed(0)}%\nDistance: ${dist.toFixed(0)} / ${stats.target.toFixed(0)} m\nCoins: ${stats.coins}\nSunset: ${t.toFixed(1)}s`
+      `Fuel: ${fuel.toFixed(0)}%\nDistance: ${dist.toFixed(0)} / ${stats.target.toFixed(0)} m\nCoins: ${stats.coins}\nNight in: ${t.toFixed(1)}s`
     );
     this.rightText.setText(`ARTPASS_FUN_V1\nPLAY: ◀ / ▶ or touch pedals`);
   }

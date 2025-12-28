@@ -19,9 +19,24 @@ export function buildTerrain(scene: Phaser.Scene, opts: TerrainOptions): Terrain
   let height = baseHeight;
 
   for (let x = 0; x <= length; x += segmentLength) {
-    const wave = Math.sin(x * 0.0015) * amplitude * 0.6 + Math.sin(x * 0.0007) * amplitude * 0.3;
-    height = Phaser.Math.Clamp(baseHeight + wave + jitter(), baseHeight - amplitude, baseHeight + amplitude);
+    if (x < 380) {
+      height = baseHeight - 12 + Math.sin(x * 0.002) * 6;
+      points.push(new Phaser.Math.Vector2(x, height));
+      continue;
+    }
+    const ramp = Phaser.Math.Clamp((x - 320) / 900, 0, 1);
+    const amp = amplitude * (0.4 + 0.6 * ramp);
+    const wave = Math.sin(x * 0.0014) * amp * 0.6 + Math.sin(x * 0.00065) * amp * 0.35;
+    height = Phaser.Math.Clamp(baseHeight + wave + jitter() * ramp, baseHeight - amp, baseHeight + amp);
     points.push(new Phaser.Math.Vector2(x, height));
+  }
+
+  // smooth spikes
+  for (let i = 1; i < points.length - 1; i++) {
+    const prev = points[i - 1].y;
+    const cur = points[i].y;
+    const next = points[i + 1].y;
+    points[i].y = (prev * 0.25 + cur * 0.5 + next * 0.25);
   }
 
   const thickness = 80;

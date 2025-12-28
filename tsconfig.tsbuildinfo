@@ -1,1 +1,1 @@
-{"root":["./src/main.ts","./src/vite-env.d.ts","./src/scenes/campscene.ts","./src/scenes/hillclimbscene.ts","./src/scenes/menuscene.ts","./src/systems/car.ts","./src/systems/terrain.ts","./src/ui/hud.ts"],"version":"5.9.3"}
+{"root":["./src/main.ts","./src/vite-env.d.ts","./src/scenes/campscene.ts","./src/scenes/hillclimbscene.ts","./src/scenes/menuscene.ts","./src/systems/car.ts","./src/systems/terrain.ts","./src/ui/hud.ts","./src/ui/pedals.ts"],"version":"5.9.3"}

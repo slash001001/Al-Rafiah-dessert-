@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { HUD } from '../ui/HUD';
 import { createCar, Car } from '../systems/car';
 import { buildTerrain, sampleHeight, TerrainProfile } from '../systems/terrain';
+import { Pedals } from '../ui/Pedals';
 
 const ARTPASS_TAG = 'ARTPASS_FUN_V1';
 type RunResult = 'win' | 'fail';
@@ -30,8 +31,8 @@ export class HillClimbScene extends Phaser.Scene {
   private duskOverlay!: Phaser.GameObjects.Rectangle;
   private sun!: Phaser.GameObjects.Arc;
   private dustEmitter!: Phaser.GameObjects.Particles.ParticleEmitter;
-  private touchDir = 0;
-  private touchState = { left: false, right: false };
+  private pedals!: Pedals;
+  private checkpoint = { x: this.startX, y: 0 };
   private stars!: Phaser.GameObjects.Image;
 
   constructor() {
@@ -62,6 +63,7 @@ export class HillClimbScene extends Phaser.Scene {
 
     const spawnY = sampleHeight(this.terrain, this.startX) - 90;
     this.car = createCar(this, this.startX, spawnY);
+    this.checkpoint = { x: this.startX, y: spawnY };
 
     const camera = this.cameras.main;
     camera.setBackgroundColor('#0d1021');
@@ -75,20 +77,21 @@ export class HillClimbScene extends Phaser.Scene {
     this.hud.showBanner('Climb before sunset. Arrows / A-D or touch pedals. ARTPASS_FUN_V1');
     this.hud.update({ fuel: this.fuel, distance: 0, target: this.targetDistance, coins: this.coins, timeLeft: this.timeLeft });
 
-    this.keys = this.input.keyboard?.addKeys({ left: 'LEFT', right: 'RIGHT', a: 'A', d: 'D' }) as Record<string, Phaser.Input.Keyboard.Key>;
+    this.keys = this.input.keyboard?.addKeys({ left: 'LEFT', right: 'RIGHT', a: 'A', d: 'D', r: 'R' }) as Record<string, Phaser.Input.Keyboard.Key>;
     this.matter.world.on('collisionstart', this.handleCollision, this);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.matter.world.off('collisionstart', this.handleCollision, this);
     });
 
-    this.createTouchControls();
+    this.pedals = new Pedals(this);
   }
 
   update(_time: number, delta: number) {
     if (this.ended) return;
 
     const dt = delta / 1000;
-    const dir = this.getInputDirection();
+    let dir = this.getInputDirection();
+    if (dir === 0 && this.fuel > 0) dir = 0.25;
     if (dir !== 0 && this.fuel > 0) {
       this.car.drive(dir);
       this.fuel = Math.max(0, this.fuel - 9 * dt);
@@ -100,7 +103,7 @@ export class HillClimbScene extends Phaser.Scene {
 
     if (this.timeLeft <= 0) return this.endRun('fail');
     if (distance >= this.targetDistance) return this.endRun('win');
-    if (this.car.getY() > this.scale.height + 600) return this.endRun('fail');
+    if (this.car.getY() > this.scale.height + 800) return this.endRun('fail');
 
     const tilt = Phaser.Math.RadToDeg(this.car.getTilt());
     if (Math.abs(tilt) > 120 && this.car.getSpeed() < 2) {
@@ -109,13 +112,19 @@ export class HillClimbScene extends Phaser.Scene {
 
     this.updateLighting();
     this.updateDust();
+    this.captureCheckpoint();
+
+    if (Phaser.Input.Keyboard.JustDown(this.keys?.r)) {
+      this.respawnAtCheckpoint();
+    }
   }
 
   private getInputDirection() {
     const left = this.keys?.left?.isDown || this.keys?.a?.isDown;
     const right = this.keys?.right?.isDown || this.keys?.d?.isDown;
-    const touchLeft = this.touchState.left;
-    const touchRight = this.touchState.right;
+    const pedal = this.pedals.getInput();
+    const touchLeft = pedal.brake;
+    const touchRight = pedal.throttle;
 
     const finalLeft = left || touchLeft;
     const finalRight = right || touchRight;
@@ -247,6 +256,7 @@ export class HillClimbScene extends Phaser.Scene {
       });
       sprite.setData('pickup', 'coin');
       sprite.setDepth(2);
+      this.tweens.add({ targets: sprite, y: y - 8, duration: 1000, yoyo: true, repeat: -1, ease: 'sine.inOut' });
       this.pickups.push(sprite);
     }
 
@@ -259,6 +269,7 @@ export class HillClimbScene extends Phaser.Scene {
       });
       sprite.setData('pickup', 'fuel');
       sprite.setDepth(2);
+      this.tweens.add({ targets: sprite, y: y - 10, duration: 1200, yoyo: true, repeat: -1, ease: 'sine.inOut' });
       this.pickups.push(sprite);
     }
   }
@@ -371,50 +382,26 @@ export class HillClimbScene extends Phaser.Scene {
     this.stars.setAlpha(Phaser.Math.Clamp((eased - 0.4) * 1.6, 0, 1));
   }
 
-  private createTouchControls() {
-    const padAlpha = 0.2;
-    const size = 150;
-    const margin = 26;
-    const bottom = this.scale.height - size / 2 - margin;
+  private captureCheckpoint() {
+    const tilt = Phaser.Math.RadToDeg(this.car.getTilt());
+    const upright = Math.abs(tilt) < 30;
+    const safe = this.car.getY() < sampleHeight(this.terrain, this.car.getX()) + 140;
+    if (upright && safe && this.car.getSpeed() > 2) {
+      if (this.car.getX() - this.checkpoint.x > 250) {
+        this.checkpoint = { x: this.car.getX(), y: this.car.getY() };
+      }
+    }
+  }
 
-    const left = this.add.rectangle(size / 2 + margin, bottom, size, size, 0x000000, padAlpha).setScrollFactor(0).setDepth(30);
-    const right = this.add.rectangle(this.scale.width - size / 2 - margin, bottom, size, size, 0x000000, padAlpha).setScrollFactor(0).setDepth(30);
-    left.setStrokeStyle(3, 0xf4c95d, 0.8);
-    right.setStrokeStyle(3, 0xf4c95d, 0.8);
-
-    const leftLabel = this.add.text(left.x, left.y, '◀', { fontFamily: 'monospace', fontSize: '36px', color: '#ffd166' })
-      .setOrigin(0.5)
-      .setScrollFactor(0)
-      .setDepth(31);
-    const rightLabel = this.add.text(right.x, right.y, '▶', { fontFamily: 'monospace', fontSize: '36px', color: '#ffd166' })
-      .setOrigin(0.5)
-      .setScrollFactor(0)
-      .setDepth(31);
-
-    const setLeft = (state: boolean) => {
-      this.touchState.left = state;
-      left.setAlpha(state ? 0.4 : padAlpha);
-    };
-    const setRight = (state: boolean) => {
-      this.touchState.right = state;
-      right.setAlpha(state ? 0.4 : padAlpha);
-    };
-
-    const leftHandler = { down: () => setLeft(true), up: () => setLeft(false) };
-    const rightHandler = { down: () => setRight(true), up: () => setRight(false) };
-
-    left.setInteractive({ useHandCursor: true })
-      .on('pointerdown', leftHandler.down)
-      .on('pointerup', leftHandler.up)
-      .on('pointerout', leftHandler.up)
-      .on('pointerupoutside', leftHandler.up);
-    right.setInteractive({ useHandCursor: true })
-      .on('pointerdown', rightHandler.down)
-      .on('pointerup', rightHandler.up)
-      .on('pointerout', rightHandler.up)
-      .on('pointerupoutside', rightHandler.up);
-
-    leftLabel.setInteractive({ useHandCursor: true }).on('pointerdown', leftHandler.down).on('pointerup', leftHandler.up).on('pointerout', leftHandler.up);
-    rightLabel.setInteractive({ useHandCursor: true }).on('pointerdown', rightHandler.down).on('pointerup', rightHandler.up).on('pointerout', rightHandler.up);
+  private respawnAtCheckpoint() {
+    const targetX = this.checkpoint.x;
+    const targetY = sampleHeight(this.terrain, targetX) - 90;
+    const bodies = [this.car.chassis, ...this.car.wheels];
+    bodies.forEach((body, idx) => {
+      const dx = idx === 0 ? 0 : idx === 1 ? -60 : 60;
+      this.matter.body.setPosition(body.body as MatterJS.BodyType, { x: targetX + dx, y: targetY });
+      this.matter.body.setVelocity(body.body as MatterJS.BodyType, { x: 0, y: 0 });
+      this.matter.body.setAngularVelocity(body.body as MatterJS.BodyType, 0);
+    });
   }
 }

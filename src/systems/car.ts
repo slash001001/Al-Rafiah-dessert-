@@ -14,10 +14,10 @@ export function createCar(scene: Phaser.Scene, x: number, y: number): Car {
   createCarTextures(scene);
 
   const chassisWidth = 140;
-  const chassisHeight = 34;
+  const chassisHeight = 36;
   const wheelRadius = 26;
-  const wheelBase = 60;
-  const suspensionLength = 40;
+  const wheelBase = 64;
+  const suspensionLength = 44;
 
   const matterLib = (Phaser.Physics.Matter as any).Matter as any;
 
@@ -26,9 +26,9 @@ export function createCar(scene: Phaser.Scene, x: number, y: number): Car {
   });
   const chassisBody = matterLib.Bodies.rectangle(x, y, chassisWidth, chassisHeight, { chamfer: { radius: 8 } });
   chassis.setExistingBody(chassisBody);
-  chassis.setFriction(0.9).setFrictionAir(0.02).setDensity(0.0016);
+  chassis.setFriction(0.9).setFrictionAir(0.015).setDensity(0.0014);
 
-  const wheelOpts = { friction: 1, frictionStatic: 1, frictionAir: 0.001, density: 0.0012, restitution: 0.05 };
+  const wheelOpts = { friction: 1.05, frictionStatic: 1.2, frictionAir: 0.0008, density: 0.0013, restitution: 0.04 };
   const wheelRear = scene.matter.add.image(x - wheelBase, y + 20, 'car-wheel', undefined, {
     ...wheelOpts,
     label: 'car-wheel'
@@ -58,18 +58,21 @@ export function createCar(scene: Phaser.Scene, x: number, y: number): Car {
     pointB: { x: 0, y: 0 }
   });
 
-  const maxAngularSpeed = 0.55;
-  const torque = 0.0018;
+  const maxAngularSpeed = 1.05;
+  const motorLerp = 0.22;
+  const coastLerp = 0.1;
+  const brakeLerp = 0.28;
 
   const drive = (dir: number) => {
-    const currentSpeed = getSpeed();
-    const dampen = currentSpeed > 28 ? 0.4 : 1;
-    const deltaTorque = torque * dir * dampen;
+    const target = dir * maxAngularSpeed;
     [wheelRear, wheelFront].forEach((wheel) => {
       if (!wheel.body) return;
-      const angular = (wheel.body as MatterJS.BodyType).angularVelocity + deltaTorque;
-      const limited = Phaser.Math.Clamp(angular, -maxAngularSpeed, maxAngularSpeed);
-      matterLib.Body.setAngularVelocity(wheel.body as MatterJS.BodyType, limited);
+      const body = wheel.body as MatterJS.BodyType;
+      const current = body.angularVelocity;
+      const lerp = dir === 0 ? coastLerp : dir < 0 ? brakeLerp : motorLerp;
+      const next = Phaser.Math.Linear(current, target, lerp);
+      const limited = Phaser.Math.Clamp(next, -maxAngularSpeed, maxAngularSpeed);
+      matterLib.Body.setAngularVelocity(body, limited);
     });
   };
 
