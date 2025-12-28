@@ -1,0 +1,12 @@
+.DS_Store
+node_modules/
+dist/
+build/
+coverage/
+reports/**/*.html
+.vite/
+*.log
+tmp/
+temp/
+*.tmp
+package-lock-backup.json
