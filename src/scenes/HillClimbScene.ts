@@ -3,7 +3,7 @@ import { HUD } from '../ui/HUD';
 import { createCar, Car } from '../systems/car';
 import { buildTerrain, sampleHeight, TerrainProfile } from '../systems/terrain';
 
-const ARTPASS_TAG = 'ARTPASS_V1';
+const ARTPASS_TAG = 'ARTPASS_FUN_V1';
 type RunResult = 'win' | 'fail';
 
 type CampData = {
@@ -32,6 +32,7 @@ export class HillClimbScene extends Phaser.Scene {
   private dustEmitter!: Phaser.GameObjects.Particles.ParticleEmitter;
   private touchDir = 0;
   private touchState = { left: false, right: false };
+  private stars!: Phaser.GameObjects.Image;
 
   constructor() {
     super('HillClimbScene');
@@ -46,6 +47,7 @@ export class HillClimbScene extends Phaser.Scene {
 
     this.input.addPointer(2);
     this.addSky();
+    this.createStarfield();
     this.createParallax();
     this.createPickupTextures();
 
@@ -70,7 +72,7 @@ export class HillClimbScene extends Phaser.Scene {
     this.createDust();
 
     this.hud = new HUD(this);
-    this.hud.showBanner('Climb before sunset. Arrows / A-D or touch pedals. ARTPASS_V1');
+    this.hud.showBanner('Climb before sunset. Arrows / A-D or touch pedals. ARTPASS_FUN_V1');
     this.hud.update({ fuel: this.fuel, distance: 0, target: this.targetDistance, coins: this.coins, timeLeft: this.timeLeft });
 
     this.keys = this.input.keyboard?.addKeys({ left: 'LEFT', right: 'RIGHT', a: 'A', d: 'D' }) as Record<string, Phaser.Input.Keyboard.Key>;
@@ -182,10 +184,28 @@ export class HillClimbScene extends Phaser.Scene {
 
   private addSky() {
     const g = this.add.graphics();
-    g.fillGradientStyle(0x0c1440, 0x111c52, 0xf39c12, 0xf9d976, 1);
+    g.fillGradientStyle(0x081226, 0x0c1e3d, 0xf6c347, 0xffdd9b, 1);
     g.fillRect(0, 0, this.scale.width, this.scale.height);
     g.setScrollFactor(0);
     g.setDepth(-10);
+  }
+
+  private createStarfield() {
+    const w = this.scale.width;
+    const h = this.scale.height;
+    if (!this.textures.exists('starfield')) {
+      const g = this.add.graphics();
+      g.fillStyle(0xffffff, 0.9);
+      for (let i = 0; i < 120; i++) {
+        const x = Phaser.Math.Between(0, w);
+        const y = Phaser.Math.Between(0, h * 0.6);
+        const r = Phaser.Math.FloatBetween(0.8, 2.4);
+        g.fillCircle(x, y, r);
+      }
+      g.generateTexture('starfield', w, h);
+      g.destroy();
+    }
+    this.stars = this.add.image(0, 0, 'starfield').setOrigin(0).setScrollFactor(0).setAlpha(0).setDepth(-11);
   }
 
   private createSun() {
@@ -328,9 +348,9 @@ export class HillClimbScene extends Phaser.Scene {
 
   private updateDust() {
     const speed = this.car.getSpeed();
-    const rate = Phaser.Math.Clamp(speed / 40, 0, 1);
-    this.dustEmitter.setQuantity(rate > 0.1 ? 2 : 0);
-    (this.dustEmitter as any).speedX = { min: -90 - rate * 40, max: 40 };
+    const rate = Phaser.Math.Clamp(speed / 30, 0, 1.4);
+    this.dustEmitter.setQuantity(rate > 0.05 ? 3 : 0);
+    (this.dustEmitter as any).speedX = { min: -110 - rate * 50, max: 50 };
     this.dustEmitter.followOffset.set(-30, 30);
   }
 
@@ -347,7 +367,8 @@ export class HillClimbScene extends Phaser.Scene {
     const sunHex = Phaser.Display.Color.GetColor(sunColor.r, sunColor.g, sunColor.b);
     this.sun.setY(sunY);
     this.sun.setFillStyle(sunHex, 0.9);
-    this.duskOverlay.setAlpha(0.1 + eased * 0.6);
+    this.duskOverlay.setAlpha(0.1 + eased * 0.65);
+    this.stars.setAlpha(Phaser.Math.Clamp((eased - 0.4) * 1.6, 0, 1));
   }
 
   private createTouchControls() {

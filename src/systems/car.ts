@@ -58,12 +58,12 @@ export function createCar(scene: Phaser.Scene, x: number, y: number): Car {
     pointB: { x: 0, y: 0 }
   });
 
-  const maxAngularSpeed = 0.35;
-  const torque = 0.0009;
+  const maxAngularSpeed = 0.55;
+  const torque = 0.0018;
 
   const drive = (dir: number) => {
     const currentSpeed = getSpeed();
-    const dampen = currentSpeed > 20 ? 0.55 : 1;
+    const dampen = currentSpeed > 28 ? 0.4 : 1;
     const deltaTorque = torque * dir * dampen;
     [wheelRear, wheelFront].forEach((wheel) => {
       if (!wheel.body) return;
