@@ -48,14 +48,14 @@ export function buildTerrain(scene: Phaser.Scene, opts: TerrainOptions): Terrain
   }
 
   const ground = scene.add.graphics();
-  ground.fillStyle(0x3d2f23, 1);
+  ground.fillStyle(0xc18a53, 1);
   ground.beginPath();
   ground.moveTo(0, scene.scale.height + 200);
   points.forEach((p) => ground.lineTo(p.x, p.y));
   ground.lineTo(points[points.length - 1].x, scene.scale.height + 200);
   ground.closePath();
   ground.fillPath();
-  ground.lineStyle(4, 0x7a5b3a, 0.8);
+  ground.lineStyle(6, 0x8d5a2d, 0.9);
   ground.beginPath();
   ground.moveTo(points[0].x, points[0].y - 2);
   points.forEach((p) => ground.lineTo(p.x, p.y - 2));

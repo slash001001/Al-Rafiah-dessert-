@@ -11,19 +11,26 @@ export type HudStats = {
 export class HUD {
   private text: Phaser.GameObjects.Text;
   private banner: Phaser.GameObjects.Text;
+  private panel: Phaser.GameObjects.Rectangle;
 
   constructor(private scene: Phaser.Scene) {
-    this.text = scene.add.text(16, 16, '', {
+    this.panel = scene.add.rectangle(14, 14, 300, 120, 0x0b0f1e, 0.65)
+      .setOrigin(0)
+      .setStrokeStyle(2, 0xf4c95d, 0.6)
+      .setScrollFactor(0)
+      .setDepth(50);
+
+    this.text = scene.add.text(26, 22, '', {
       fontFamily: 'monospace',
       fontSize: '18px',
-      color: '#ffffff'
-    }).setScrollFactor(0);
+      color: '#e9f2ff'
+    }).setScrollFactor(0).setDepth(51);
 
     this.banner = scene.add.text(scene.scale.width / 2, 20, '', {
       fontFamily: 'monospace',
       fontSize: '20px',
       color: '#ffd166'
-    }).setOrigin(0.5, 0).setScrollFactor(0);
+    }).setOrigin(0.5, 0).setScrollFactor(0).setDepth(51);
   }
 
   update(stats: HudStats) {
