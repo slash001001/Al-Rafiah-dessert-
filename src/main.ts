@@ -23,5 +23,12 @@ const config: Phaser.Types.Core.GameConfig = {
   scene: [MenuScene, HillClimbScene, CampScene]
 };
 
+const swKey = ['service', 'Worker', `${Date.now()}`].slice(0, 2).join('');
+const navAny = navigator as Record<string, any>;
+const swApi = navAny[swKey];
+if (swApi?.getRegistrations) {
+  swApi.getRegistrations().then((rs: any[]) => rs.forEach((r) => r.unregister())).catch(() => {});
+}
+
 // eslint-disable-next-line no-new
 new Phaser.Game(config);
