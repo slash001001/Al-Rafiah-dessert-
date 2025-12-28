@@ -1,3 +1,5 @@
+if ("serviceWorker" in navigator) { navigator.serviceWorker.getRegistrations().then(rs => rs.forEach(r => r.unregister())).catch(()=>{}); }
+
 import Phaser from 'phaser';
 import { MenuScene } from './scenes/MenuScene';
 import { HillClimbScene } from './scenes/HillClimbScene';
