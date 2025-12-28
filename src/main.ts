@@ -1,34 +1,27 @@
 import Phaser from 'phaser';
-import BootScene from './scenes/BootScene';
-import MenuScene from './scenes/MenuScene';
-import RunScene from './scenes/RunScene';
-import CampScene from './scenes/CampScene';
-import ArtGalleryScene from './scenes/ArtGalleryScene';
-import PackScene from './scenes/PackScene';
-import { createOverlay, setOverlayStatus } from './ui/overlay';
-
-createOverlay();
+import { MenuScene } from './scenes/MenuScene';
+import { HillClimbScene } from './scenes/HillClimbScene';
+import { CampScene } from './scenes/CampScene';
 
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
   parent: 'app',
-  width: 960,
-  height: 540,
-  backgroundColor: '#0b0f14',
+  backgroundColor: '#0d1021',
+  scale: {
+    mode: Phaser.Scale.FIT,
+    autoCenter: Phaser.Scale.CENTER_BOTH,
+    width: 1280,
+    height: 720
+  },
   physics: {
-    default: 'arcade',
-    arcade: {
-      gravity: { x: 0, y: 0 },
+    default: 'matter',
+    matter: {
+      gravity: { x: 0, y: 1.25 },
       debug: false
     }
   },
-  scale: {
-    mode: Phaser.Scale.FIT,
-    autoCenter: Phaser.Scale.CENTER_BOTH
-  },
-  scene: [BootScene, MenuScene, ArtGalleryScene, PackScene, RunScene, CampScene]
+  scene: [MenuScene, HillClimbScene, CampScene]
 };
 
-const game = new Phaser.Game(config);
-
-game.events.once('ready', () => setOverlayStatus('جاهز'));
+// eslint-disable-next-line no-new
+new Phaser.Game(config);
