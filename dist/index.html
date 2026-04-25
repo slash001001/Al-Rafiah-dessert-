@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+    <meta name="theme-color" content="#060815" />
+    <meta name="description" content="لعبة الرافعية — 2D dune climb: اصعد السيف، تجنب الربادات، واجمع منسيات القعدة." />
+    <title>لعبة الرافعية | Alrafyah Game</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%23060815'/%3E%3Cpath d='M5 43C18 20 28 20 40 38c5 8 10 7 19 4v9H5z' fill='%23d8b26e'/%3E%3Cpath d='M6 42C20 18 29 20 41 38' fill='none' stroke='%2300f5ff' stroke-width='3'/%3E%3Cpath d='M45 43c2-8 6-8 8 0 1 5-2 8-4 9-3-2-5-5-4-9z' fill='%23ff7a1a'/%3E%3C/svg%3E" />
+    <style>
+      :root {
+        --bg: #060815;
+        --cyan: #00f5ff;
+        --magenta: #ff2bd6;
+        --sand: #d8b26e;
+        --fire: #ff7a1a;
+      }
+      * { box-sizing: border-box; }
+      html, body {
+        margin: 0;
+        height: 100%;
+        overflow: hidden;
+        background: radial-gradient(circle at 50% 20%, #182450 0%, var(--bg) 54%, #02030a 100%);
+        font-family: Inter, "IBM Plex Sans Arabic", "DIN Next Arabic", "Noto Kufi Arabic", system-ui, -apple-system, Segoe UI, Arial, sans-serif;
+        touch-action: none;
+        -webkit-user-select: none;
+        user-select: none;
+      }
+      #game {
+        width: 100vw;
+        height: 100dvh;
+        display: block;
+        outline: none;
+        cursor: crosshair;
+      }
+      #loading {
+        position: fixed;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        color: white;
+        letter-spacing: 0.03em;
+        background: linear-gradient(180deg, #060815 0%, #10163c 65%, #4c321f 100%);
+        z-index: 2;
+        transition: opacity .3s ease;
+      }
+      #loading.hidden { opacity: 0; pointer-events: none; }
+      .loading-card {
+        width: min(520px, 92vw);
+        padding: 28px;
+        border: 1px solid rgba(0,245,255,.4);
+        border-radius: 24px;
+        background: rgba(6,8,21,.58);
+        box-shadow: 0 0 48px rgba(0,245,255,.16), inset 0 0 40px rgba(255,122,26,.05);
+        text-align: center;
+        backdrop-filter: blur(12px);
+      }
+      .loading-card h1 { margin: 0 0 10px; font-size: clamp(28px, 6vw, 54px); }
+      .loading-card p { margin: 0; opacity: .78; }
+    </style>
+  </head>
+  <body>
+    <div id="loading" aria-hidden="true">
+      <div class="loading-card">
+        <h1>لعبة الرافعية</h1>
+        <p>اصعد السيف… وانتبه للربادات</p>
+      </div>
+    </div>
+    <canvas id="game" role="application" aria-label="Alrafyah 2D Dune Climb Game" tabindex="0"></canvas>
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>

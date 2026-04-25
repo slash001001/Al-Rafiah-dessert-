@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 540" role="img" aria-label="Alrafyah Game logo">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#060815"/>
+      <stop offset="0.55" stop-color="#151b47"/>
+      <stop offset="1" stop-color="#3d241f"/>
+    </linearGradient>
+    <linearGradient id="sand" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#e7c590"/>
+      <stop offset="1" stop-color="#8b5b34"/>
+    </linearGradient>
+    <filter id="glow"><feGaussianBlur stdDeviation="8" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+  </defs>
+  <rect width="960" height="540" fill="url(#sky)"/>
+  <circle cx="740" cy="105" r="44" fill="#eef7ff" opacity="0.85"/>
+  <path d="M0 382C120 210 220 230 320 350c70 85 140 62 210 12 105-75 210-40 280 18 54 45 100 48 150 30v160H0z" fill="url(#sand)"/>
+  <path d="M24 376C120 224 222 218 320 350c70 85 140 62 210 12 105-75 210-40 280 18" fill="none" stroke="#00F5FF" stroke-width="8" filter="url(#glow)" opacity="0.9"/>
+  <g transform="translate(250 286) rotate(-7)">
+    <ellipse cx="0" cy="60" rx="110" ry="28" fill="#000" opacity="0.25"/>
+    <circle cx="-58" cy="46" r="29" fill="#070a12" stroke="#00F5FF" stroke-width="5"/>
+    <circle cx="64" cy="46" r="29" fill="#070a12" stroke="#00F5FF" stroke-width="5"/>
+    <path d="M-100 20L-70-34Q-18-62 46-46L95-7L112 30L65 40H-72Z" fill="#0b1023" stroke="#f4c27a" stroke-width="5"/>
+    <path d="M-52-31L-12-43L0-9H-62Z" fill="#00F5FF" opacity="0.25"/>
+    <path d="M8-43L45-37L62-8H7Z" fill="#00F5FF" opacity="0.25"/>
+  </g>
+  <g transform="translate(760 350)">
+    <path d="M-32 22L35 4M-34 4L32 23" stroke="#6a3d25" stroke-width="10" stroke-linecap="round"/>
+    <circle cx="0" cy="0" r="70" fill="#ff7a1a" opacity="0.18" filter="url(#glow)"/>
+    <path d="M0-58C-28-20-7 32 0 34C20 15 35-18 0-58Z" fill="#ffec88"/>
+    <path d="M6-32C-13-7-2 22 9 25C20 7 21-10 6-32Z" fill="#ff7a1a"/>
+  </g>
+  <text x="480" y="112" fill="#fff" font-size="66" font-weight="900" text-anchor="middle" font-family="Arial, sans-serif">لعبة الرافعية</text>
+  <text x="480" y="168" fill="#00F5FF" font-size="30" font-weight="800" text-anchor="middle" font-family="Arial, sans-serif">Alrafyah Dune Climb</text>
+</svg>
